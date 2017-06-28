@@ -4,7 +4,7 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
-		<key>SDWebImage4.0.xcscheme</key>
+		<key>AFNetworking3.0+.xcscheme</key>
 		<dict>
 			<key>orderHint</key>
 			<integer>0</integer>
@@ -12,17 +12,17 @@
 	</dict>
 	<key>SuppressBuildableAutocreation</key>
 	<dict>
-		<key>76F9270C1F034834003B8CFF</key>
+		<key>76BABDCE1F03B67700D2235B</key>
 		<dict>
 			<key>primary</key>
 			<true/>
 		</dict>
-		<key>76F927241F034834003B8CFF</key>
+		<key>76BABDE71F03B67700D2235B</key>
 		<dict>
 			<key>primary</key>
 			<true/>
 		</dict>
-		<key>76F9272F1F034834003B8CFF</key>
+		<key>76BABDF21F03B67700D2235B</key>
 		<dict>
 			<key>primary</key>
 			<true/>
