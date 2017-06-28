@@ -59,12 +59,8 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
 
 - (nullable NSString *)makeDiskCachePath:(nonnull NSString*)fullNamespace;
 
-/**
- * Add a read-only cache path to search for images pre-cached by SDImageCache
- * Useful if you want to bundle pre-loaded images with your app
- *
- * @param path The path to use for this read-only cache path
- */
+
+//添加一个只读缓存路径,用于给app预装一些图片
 - (void)addReadOnlyCachePath:(nonnull NSString *)path;
 
 #pragma mark - Store Ops
@@ -95,118 +91,61 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
 // 异步检查图片是否已经缓存在磁盘中,回调block将在主队列中执行
 - (void)diskImageExistsWithKey:(nullable NSString *)key completion:(nullable SDWebImageCheckCacheCompletionBlock)completionBlock;
 
-/**
- * Operation that queries the cache asynchronously and call the completion when done.
- *
- * @param key       The unique key used to store the wanted image
- * @param doneBlock The completion block. Will not get called if the operation is cancelled
- *
- * @return a NSOperation instance containing the cache op
- */
+
+//异步查询缓存,成功后进行回调.该方法返回一个操作对象,可用于管理(取消)
 - (nullable NSOperation *)queryCacheOperationForKey:(nullable NSString *)key done:(nullable SDCacheQueryCompletedBlock)doneBlock;
 
-/**
- * Query the memory cache synchronously.
- *
- * @param key The unique key used to store the image
- 返回内存中指定的图片缓存
- */
+
+// 同步返回内存中指定的图片缓存
 - (nullable UIImage *)imageFromMemoryCacheForKey:(nullable NSString *)key;
 
-/**
- * Query the disk cache synchronously.
- *
- * @param key The unique key used to store the image
-  返回磁盘中指定的图片缓存
- */
+
+//同步 获取磁盘中指定的图片
 - (nullable UIImage *)imageFromDiskCacheForKey:(nullable NSString *)key;
 
-/**
- * Query the cache (memory and or disk) synchronously after checking the memory cache.
- *
- * @param key The unique key used to store the image
- */
+
+//获取缓存(memory and or disk) 同步
 - (nullable UIImage *)imageFromCacheForKey:(nullable NSString *)key;
 
 #pragma mark - Remove Ops
 
-/**
- * Remove the image from memory and disk cache asynchronously
- *
- * @param key             The unique image cache key
- * @param completion      A block that should be executed after the image has been removed (optional)
- */
+//异步 同事删除内存,磁盘中指定的缓存
 - (void)removeImageForKey:(nullable NSString *)key withCompletion:(nullable SDWebImageNoParamsBlock)completion;
 
-/**
- * Remove the image from memory and optionally disk cache asynchronously
- *
- * @param key             The unique image cache key
- * @param fromDisk        Also remove cache entry from disk if YES
- * @param completion      A block that should be executed after the image has been removed (optional)
- */
+//异步 删除磁盘中指定的缓存文件
 - (void)removeImageForKey:(nullable NSString *)key fromDisk:(BOOL)fromDisk withCompletion:(nullable SDWebImageNoParamsBlock)completion;
 
 #pragma mark - Cache clean Ops
 
-/**
- * Clear all memory cached images
- 清除缓存
- */
+// 清除内存中的缓存
 - (void)clearMemory;
 
-/**
- * Async clear all disk cached images. Non-blocking method - returns immediately.
- * @param completion    A block that should be executed after cache expiration completes (optional)
- */
+//异步删除所有的磁盘文件 删除完成后执行回调
 - (void)clearDiskOnCompletion:(nullable SDWebImageNoParamsBlock)completion;
 
-/**
- * Async remove all expired cached image from disk. Non-blocking method - returns immediately.
- * @param completionBlock A block that should be executed after cache expiration completes (optional)
- 
- */
+
+//异步删除过期的磁盘文件 删除完成后执行回调
 - (void)deleteOldFilesWithCompletionBlock:(nullable SDWebImageNoParamsBlock)completionBlock;
 
 #pragma mark - Cache Info
 
-/**
- * Get the size used by the disk cache
- 磁盘缓存大小
- */
+// 磁盘缓存大小 同步
 - (NSUInteger)getSize;
 
-/**
- * Get the number of images in the disk cache
- 磁盘缓存图片数量
- */
+
+// 磁盘缓存图片数量
 - (NSUInteger)getDiskCount;
 
-/**
- * Asynchronously calculate the disk cache's size.
- 异步计算磁盘缓存的大小
- */
+
+// 异步计算磁盘缓存的大小 回调
 - (void)calculateSizeWithCompletionBlock:(nullable SDWebImageCalculateSizeBlock)completionBlock;
 
 #pragma mark - Cache Paths
 
-/**
- *  Get the cache path for a certain key (needs the cache path root folder)
- *
- *  @param key  the key (can be obtained from url using cacheKeyForURL)
- *  @param path the cache path root folder
- *
- *  @return the cache path
- */
+//缓存路径
 - (nullable NSString *)cachePathForKey:(nullable NSString *)key inPath:(nonnull NSString *)path;
 
-/**
- *  Get the default cache path for a certain key
- *
- *  @param key the key (can be obtained from url using cacheKeyForURL)
- *
- *  @return the default cache path
- */
+//指定的URL的默认缓存路径
 - (nullable NSString *)defaultCachePathForKey:(nullable NSString *)key;
 
 @end
