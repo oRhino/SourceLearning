@@ -174,7 +174,6 @@
         
         //创建操作对象完成之后 进行网络参数配置和处理操作列表的执行顺序(添加依赖)
         
-        
         __strong __typeof (wself) sself = wself;
         //超时时间
         NSTimeInterval timeoutInterval = sself.downloadTimeout;

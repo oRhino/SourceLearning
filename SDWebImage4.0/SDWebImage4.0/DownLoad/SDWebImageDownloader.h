@@ -14,48 +14,28 @@ typedef NS_OPTIONS(NSUInteger, SDWebImageDownloaderOptions) {
     
     //在低优先级的操作队列(默认)
     SDWebImageDownloaderLowPriority = 1 << 0,
+    //渐进式下载(图片从上往下显示|逐行显示)
     SDWebImageDownloaderProgressiveDownload = 1 << 1,
 
-    /**
-     * By default, request prevent the use of NSURLCache. With this flag, NSURLCache
-     * is used with default policies.
-     */
+    //通常情况下request阻止使用NSURLCache.这个选项会默认使用NSURLCache
     SDWebImageDownloaderUseNSURLCache = 1 << 2,
 
-    /**
-     * Call completion block with nil image/imageData if the image was read from NSURLCache
-     * (to be combined with `SDWebImageDownloaderUseNSURLCache`).
-     */
-
+    //如果从NSURLCache中读取图片,会在调用完成block的时候,传递空的image或者imageData
     SDWebImageDownloaderIgnoreCachedResponse = 1 << 3,
-    /**
-     * In iOS 4+, continue the download of the image if the app goes to background. This is achieved by asking the system for
-     * extra time in background to let the request finish. If the background task expires the operation will be cancelled.
-     */
-
+    
+    //后台进行下载,实现在后台申请额外的时间来完成请求.如果后台任务到期,操作也会被取消
     SDWebImageDownloaderContinueInBackground = 1 << 4,
 
-    /**
-     * Handles cookies stored in NSHTTPCookieStore by setting 
-     * NSMutableURLRequest.HTTPShouldHandleCookies = YES;
-     */
+    //通过设置 NSMutableURLRequest.HTTPShouldHandleCookies = YES的方式来处理存储在NSHTTPCookieStore的cookies
     SDWebImageDownloaderHandleCookies = 1 << 5,
 
-    /**
-     * Enable to allow untrusted SSL certificates.
-     * Useful for testing purposes. Use with caution in production.
-     */
+    //允许不信任的SSL证书 一般测试的时候使用,生产环境慎用
     SDWebImageDownloaderAllowInvalidSSLCertificates = 1 << 6,
-
-    /**
-     * Put the image in the high priority queue.
-     */
-    //在高优先级的操作队列中下载
+    
+    //在高优先级的操作队列中下载,
     SDWebImageDownloaderHighPriority = 1 << 7,
     
-    /**
-     * Scale down the image
-     */
+    //裁剪图片
     SDWebImageDownloaderScaleDownLargeImages = 1 << 8,
 };
 
@@ -81,7 +61,7 @@ typedef void(^SDWebImageDownloaderCompletedBlock)(UIImage * _Nullable image, NSD
 //请求头信息
 typedef NSDictionary<NSString *, NSString *> SDHTTPHeadersDictionary;
 typedef NSMutableDictionary<NSString *, NSString *> SDHTTPHeadersMutableDictionary;
-
+//过滤请求头
 typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterBlock)(NSURL * _Nullable url, SDHTTPHeadersDictionary * _Nullable headers);
 
 
@@ -99,142 +79,62 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
  */
 @interface SDWebImageDownloader : NSObject
 
-/**
- * Decompressing images that are downloaded and cached can improve performance but can consume lot of memory.
- * Defaults to YES. Set this to NO if you are experiencing a crash due to excessive memory consumption.
- //是否对图片进行压缩,默认YES,对图片进行压缩处理可以提高性能但是会使用大量内存
- */
+//是否对图片进行压缩,默认YES,对图片进行压缩处理可以提高性能但是会使用大量内存
 @property (assign, nonatomic) BOOL shouldDecompressImages;
 
-/**
- *  The maximum number of concurrent downloads
- */
+
 //最大并发下载量
 @property (assign, nonatomic) NSInteger maxConcurrentDownloads;
 
-/**
- * Shows the current amount of downloads that still need to be downloaded
- 当前下载数量
- */
+//当前下载数量
 @property (readonly, nonatomic) NSUInteger currentDownloadCount;
 
-
-/**
- *  The timeout value (in seconds) for the download operation. Default: 15.0.
- 下载超时时间 ,默认 15s
- */
+//下载超时时间 ,默认 15s
 @property (assign, nonatomic) NSTimeInterval downloadTimeout;
 
-
-/**
- * Changes download operations execution order. Default value is `SDWebImageDownloaderFIFOExecutionOrder`.
- */
+//任务执行顺序 默认FIFO
 @property (assign, nonatomic) SDWebImageDownloaderExecutionOrder executionOrder;
 
-/**
- *  Singleton method, returns the shared instance
- *
- *  @return global shared instance of downloader class
- */
+//单例全局对象
 + (nonnull instancetype)sharedDownloader;
 
-/**
- *  Set the default URL credential to be set for request operations.
- */
+//认证
 @property (strong, nonatomic, nullable) NSURLCredential *urlCredential;
 
-/**
- * Set username
- */
+//用户名 认证相关
 @property (strong, nonatomic, nullable) NSString *username;
 
-/**
- * Set password
- */
+//密码 认证相关
 @property (strong, nonatomic, nullable) NSString *password;
 
-/**
- * Set filter to pick headers for downloading image HTTP request.
- *
- * This block will be invoked for each downloading image request, returned
- * NSDictionary will be used as headers in corresponding HTTP request.
- */
+//实现这个block,用于过滤或者处理请求头信息
 @property (nonatomic, copy, nullable) SDWebImageDownloaderHeadersFilterBlock headersFilter;
 
-/**
- * Creates an instance of a downloader with specified session configuration.
- * *Note*: `timeoutIntervalForRequest` is going to be overwritten.
- * @return new instance of downloader class
- */
+//构造函数 默认
 - (nonnull instancetype)initWithSessionConfiguration:(nullable NSURLSessionConfiguration *)sessionConfiguration NS_DESIGNATED_INITIALIZER;
 
-/**
- * Set a value for a HTTP header to be appended to each download HTTP request.
- *
- * @param value The value for the header field. Use `nil` value to remove the header.
- * @param field The name of the header field to set.
- */
+//设置请求头信息
 - (void)setValue:(nullable NSString *)value forHTTPHeaderField:(nullable NSString *)field;
 
-/**
- * Returns the value of the specified HTTP header field.
- *
- * @return The value associated with the header field field, or `nil` if there is no corresponding header field.
- */
+//获取请求头信息
 - (nullable NSString *)valueForHTTPHeaderField:(nullable NSString *)field;
 
-/**
- * Sets a subclass of `SDWebImageDownloaderOperation` as the default
- * `NSOperation` to be used each time SDWebImage constructs a request
- * operation to download an image.
- *
- * @param operationClass The subclass of `SDWebImageDownloaderOperation` to set 
- *        as default. Passing `nil` will revert to `SDWebImageDownloaderOperation`.
- */
+//指定操作对象的class,需遵循SDWebImageDownloaderOperationInterface协议
 - (void)setOperationClass:(nullable Class)operationClass;
 
-/**
- * Creates a SDWebImageDownloader async downloader instance with a given URL
- *
- * The delegate will be informed when the image is finish downloaded or an error has happen.
- *
- * @see SDWebImageDownloaderDelegate
- *
- * @param url            The URL to the image to download
- * @param options        The options to be used for this download
- * @param progressBlock  A block called repeatedly while the image is downloading
- *                       @note the progress block is executed on a background queue
- * @param completedBlock A block called once the download is completed.
- *                       If the download succeeded, the image parameter is set, in case of error,
- *                       error parameter is set with the error. The last parameter is always YES
- *                       if SDWebImageDownloaderProgressiveDownload isn't use. With the
- *                       SDWebImageDownloaderProgressiveDownload option, this block is called
- *                       repeatedly with the partial image object and the finished argument set to NO
- *                       before to be called a last time with the full image and finished argument
- *                       set to YES. In case of error, the finished argument is always YES.
- *
- * @return A token (SDWebImageDownloadToken) that can be passed to -cancel: to cancel this operation
- */
+//主要方法 下载图片 异步执行
 - (nullable SDWebImageDownloadToken *)downloadImageWithURL:(nullable NSURL *)url
                                                    options:(SDWebImageDownloaderOptions)options
                                                   progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
                                                  completed:(nullable SDWebImageDownloaderCompletedBlock)completedBlock;
 
-/**
- * Cancels a download that was previously queued using -downloadImageWithURL:options:progress:completed:
- *
- * @param token The token received from -downloadImageWithURL:options:progress:completed: that should be canceled.
- */
+//根据下载token取消下载
 - (void)cancel:(nullable SDWebImageDownloadToken *)token;
 
-/**
- * Sets the download queue suspension state
- */
+//设置操作队列挂起
 - (void)setSuspended:(BOOL)suspended;
 
-/**
- * Cancels all download operations in the queue
- */
+//取消操作队列中的所有下载操作
 - (void)cancelAllDownloads;
 
 @end
