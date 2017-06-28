@@ -12,6 +12,8 @@
 
 #import "SDWebImageManager.h"
 
+
+//处理关联的操作对象(获取,删除,取消加载操作)
 @interface UIView (WebCacheOperation)
 
 /**

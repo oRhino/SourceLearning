@@ -23,6 +23,7 @@ static char TAG_ACTIVITY_SHOW;
 
 @implementation UIView (WebCache)
 
+//通过runtime添加属性,URL
 - (nullable NSURL *)sd_imageURL {
     return objc_getAssociatedObject(self, &imageURLKey);
 }
@@ -34,12 +35,15 @@ static char TAG_ACTIVITY_SHOW;
                      setImageBlock:(nullable SDSetImageBlock)setImageBlock
                           progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
                          completed:(nullable SDExternalCompletionBlock)completedBlock {
+    
     NSString *validOperationKey = operationKey ?: NSStringFromClass([self class]);
+    //取消
     [self sd_cancelImageLoadOperationWithKey:validOperationKey];
     objc_setAssociatedObject(self, &imageURLKey, url, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
     if (!(options & SDWebImageDelayPlaceholder)) {
         dispatch_main_async_safe(^{
+            //显示展位图
             [self sd_setImage:placeholder imageData:nil basedOnClassOrViaCustomSetImageBlock:setImageBlock];
         });
     }
@@ -51,6 +55,7 @@ static char TAG_ACTIVITY_SHOW;
         }
         
         __weak __typeof(self)wself = self;
+        //下载,缓存
         id <SDWebImageOperation> operation = [SDWebImageManager.sharedManager loadImageWithURL:url options:options progress:progressBlock completed:^(UIImage *image, NSData *data, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
             __strong __typeof (wself) sself = wself;
             [sself sd_removeActivityIndicator];
@@ -127,6 +132,8 @@ static char TAG_ACTIVITY_SHOW;
 
 #pragma mark -
 #if SD_UIKIT
+
+//通过runtime添加网络指示器
 - (UIActivityIndicatorView *)activityIndicator {
     return (UIActivityIndicatorView *)objc_getAssociatedObject(self, &TAG_ACTIVITY_INDICATOR);
 }

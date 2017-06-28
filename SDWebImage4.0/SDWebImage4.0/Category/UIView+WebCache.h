@@ -42,6 +42,8 @@ typedef void(^SDSetImageBlock)(UIImage * _Nullable image, NSData * _Nullable ima
  *                       indicating if the image was retrieved from the local cache or from the network.
  *                       The fourth parameter is the original image url.
  */
+
+//入口 主要通过这个方法
 - (void)sd_internalSetImageWithURL:(nullable NSURL *)url
                   placeholderImage:(nullable UIImage *)placeholder
                            options:(SDWebImageOptions)options
@@ -58,6 +60,9 @@ typedef void(^SDSetImageBlock)(UIImage * _Nullable image, NSData * _Nullable ima
 #if SD_UIKIT
 
 #pragma mark - Activity indicator
+
+
+//指示器
 
 /**
  *  Show activity UIActivityIndicatorView
