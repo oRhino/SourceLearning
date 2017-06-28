@@ -18,18 +18,20 @@
     if (!data) {
         return nil;
     }
-
+    //获取图片源CGImageSourceRef
     CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
-
+    
+    //获取图片源数量
     size_t count = CGImageSourceGetCount(source);
-
+    
     UIImage *staticImage;
-
+    
     if (count <= 1) {
+        //只有一个图片源,说明不是动画,直接实例化返回
         staticImage = [[UIImage alloc] initWithData:data];
     } else {
-        // we will only retrieve the 1st frame. the full GIF support is available via the FLAnimatedImageView category.
-        // this here is only code to allow drawing animated images as static ones
+        
+        //这里仅仅绘制gif的第一帧内容,如果支持GIF播放可以使用FLAnimatedImageView这个类别
 #if SD_WATCH
         CGFloat scale = 1;
         scale = [WKInterfaceDevice currentDevice].screenScale;
@@ -38,8 +40,10 @@
         scale = [UIScreen mainScreen].scale;
 #endif
         
+        //获取第一帧的CGImage
         CGImageRef CGImage = CGImageSourceCreateImageAtIndex(source, 0, NULL);
 #if SD_UIKIT || SD_WATCH
+        //绘制
         UIImage *frameImage = [UIImage imageWithCGImage:CGImage scale:scale orientation:UIImageOrientationUp];
         staticImage = [UIImage animatedImageWithImages:@[frameImage] duration:0.0f];
 #elif SD_MAC
@@ -47,9 +51,9 @@
 #endif
         CGImageRelease(CGImage);
     }
-
+    //释放资源
     CFRelease(source);
-
+    
     return staticImage;
 }
 
