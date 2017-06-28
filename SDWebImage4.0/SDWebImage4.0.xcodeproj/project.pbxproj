@@ -15,8 +15,6 @@
 		76F927201F034834003B8CFF /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 76F9271F1F034834003B8CFF /* main.m */; };
 		76F9272A1F034834003B8CFF /* SDWebImage4_0Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 76F927291F034834003B8CFF /* SDWebImage4_0Tests.m */; };
 		76F927351F034834003B8CFF /* SDWebImage4_0UITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 76F927341F034834003B8CFF /* SDWebImage4_0UITests.m */; };
-		76F9276E1F0348C3003B8CFF /* FLAnimatedImage in Resources */ = {isa = PBXBuildFile; fileRef = 76F9276C1F0348C3003B8CFF /* FLAnimatedImage */; };
-		76F9276F1F0348C3003B8CFF /* MKAnnotationView+WebCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 76F9276D1F0348C3003B8CFF /* MKAnnotationView+WebCache.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -88,9 +86,10 @@
 		76F927671F034885003B8CFF /* UIView+WebCacheOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIView+WebCacheOperation.m"; sourceTree = "<group>"; };
 		76F927691F034885003B8CFF /* SDWebImageCompat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SDWebImageCompat.h; sourceTree = "<group>"; };
 		76F9276A1F034885003B8CFF /* SDWebImageCompat.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SDWebImageCompat.m; sourceTree = "<group>"; };
-		76F9276B1F0348C3003B8CFF /* MKAnnotationView+WebCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "MKAnnotationView+WebCache.h"; path = "../../../SDWebImage/MKAnnotationView+WebCache.h"; sourceTree = "<group>"; };
-		76F9276C1F0348C3003B8CFF /* FLAnimatedImage */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FLAnimatedImage; path = ../../../SDWebImage/FLAnimatedImage; sourceTree = "<group>"; };
-		76F9276D1F0348C3003B8CFF /* MKAnnotationView+WebCache.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "MKAnnotationView+WebCache.m"; path = "../../../SDWebImage/MKAnnotationView+WebCache.m"; sourceTree = "<group>"; };
+		76F927711F034937003B8CFF /* FLAnimatedImageView+WebCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FLAnimatedImageView+WebCache.h"; sourceTree = "<group>"; };
+		76F927721F034937003B8CFF /* FLAnimatedImageView+WebCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "FLAnimatedImageView+WebCache.m"; sourceTree = "<group>"; };
+		76F927731F034937003B8CFF /* MKAnnotationView+WebCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "MKAnnotationView+WebCache.m"; sourceTree = "<group>"; };
+		76F927741F034937003B8CFF /* MKAnnotationView+WebCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "MKAnnotationView+WebCache.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -232,9 +231,9 @@
 		76F9275D1F034884003B8CFF /* Category */ = {
 			isa = PBXGroup;
 			children = (
-				76F9276C1F0348C3003B8CFF /* FLAnimatedImage */,
-				76F9276B1F0348C3003B8CFF /* MKAnnotationView+WebCache.h */,
-				76F9276D1F0348C3003B8CFF /* MKAnnotationView+WebCache.m */,
+				76F927701F034937003B8CFF /* FLAnimatedImage */,
+				76F927741F034937003B8CFF /* MKAnnotationView+WebCache.h */,
+				76F927731F034937003B8CFF /* MKAnnotationView+WebCache.m */,
 				76F9275E1F034884003B8CFF /* UIButton+WebCache.h */,
 				76F9275F1F034884003B8CFF /* UIButton+WebCache.m */,
 				76F927601F034884003B8CFF /* UIImageView+HighlightedWebCache.h */,
@@ -256,6 +255,15 @@
 				76F9276A1F034885003B8CFF /* SDWebImageCompat.m */,
 			);
 			path = Define;
+			sourceTree = "<group>";
+		};
+		76F927701F034937003B8CFF /* FLAnimatedImage */ = {
+			isa = PBXGroup;
+			children = (
+				76F927711F034937003B8CFF /* FLAnimatedImageView+WebCache.h */,
+				76F927721F034937003B8CFF /* FLAnimatedImageView+WebCache.m */,
+			);
+			path = FLAnimatedImage;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -364,7 +372,6 @@
 				76F9271D1F034834003B8CFF /* LaunchScreen.storyboard in Resources */,
 				76F9271A1F034834003B8CFF /* Assets.xcassets in Resources */,
 				76F927181F034834003B8CFF /* Main.storyboard in Resources */,
-				76F9276E1F0348C3003B8CFF /* FLAnimatedImage in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -390,7 +397,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				76F927151F034834003B8CFF /* ViewController.m in Sources */,
-				76F9276F1F0348C3003B8CFF /* MKAnnotationView+WebCache.m in Sources */,
 				76F927201F034834003B8CFF /* main.m in Sources */,
 				76F927121F034834003B8CFF /* AppDelegate.m in Sources */,
 			);
