@@ -12,32 +12,23 @@
 @class SDImageCacheConfig;
 
 typedef NS_ENUM(NSInteger, SDImageCacheType) {
-    /**
-     * The image wasn't available the SDWebImage caches, but was downloaded from the web.
-     */
+    //没有缓存
     SDImageCacheTypeNone,
-    /**
-     * The image was obtained from the disk cache.
-     */
+    //磁盘缓存
     SDImageCacheTypeDisk,
-    /**
-     * The image was obtained from the memory cache.
-     */
+    //Memory
     SDImageCacheTypeMemory
 };
 
-
+//查询队列完成回调block
 typedef void(^SDCacheQueryCompletedBlock)(UIImage * _Nullable image, NSData * _Nullable data, SDImageCacheType cacheType);
-
+//检查缓存回调
 typedef void(^SDWebImageCheckCacheCompletionBlock)(BOOL isInCache);
-
+//计算缓存大小回调
 typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger totalSize);
 
 
-/**
- * SDImageCache maintains a memory cache and an optional disk cache. Disk cache write operations are performed
- * asynchronous so it doesn’t add unnecessary latency to the UI.
- */
+//SDImageCache主要是Memory缓存,但是同样可以选择磁盘进行缓存.磁盘进行缓存是异步的,不会阻塞主线程
 @interface SDImageCache : NSObject
 
 #pragma mark - Properties
