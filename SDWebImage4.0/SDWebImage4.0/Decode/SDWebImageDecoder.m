@@ -14,7 +14,7 @@
 #if SD_UIKIT || SD_WATCH
 //用来说明每个像素占用内存多少个字节，在这里是占用4个字节。（图像在iOS设备上是以像素为单位显示的）
 static const size_t kBytesPerPixel = 4;
-//表示每一个组件占多少位。这个不太好理解，我们先举个例子，比方说RGBA，其中R（红色）G（绿色）B（蓝色）A（透明度）是4个组件，每个像素由这4个组件组成，那么我们就用8位来表示着每一个组件，所以这个RGBA就是8*4 = 32位。
+//表示每一个组件占多少位。举例，比方说RGBA，其中R（红色）G（绿色）B（蓝色）A（透明度）是4个组件，每个像素由这4个组件组成，那么我们就用8位来表示着每一个组件，所以这个RGBA就是8*4 = 32位。
 static const size_t kBitsPerComponent = 8;
 
 + (nullable UIImage *)decodedImageWithImage:(nullable UIImage *)image {
@@ -31,10 +31,10 @@ static const size_t kBitsPerComponent = 8;
         
         size_t width = CGImageGetWidth(imageRef);
         size_t height = CGImageGetHeight(imageRef);
-        //每行的像素数
+        //每行的像素占用字节数
         size_t bytesPerRow = kBytesPerPixel * width;
         
-        //这里创建的contexts是没有透明因素的。在UI渲染的时候，实际上是把多个图层按像素叠加计算的过程，需要对每一个像素进行 RGBA 的叠加计算。当某个 layer 的是不透明的，也就是 opaque 为 YES 时，GPU 可以直接忽略掉其下方的图层，这就减少了很多工作量。这也是调用 CGBitmapContextCreate 时 bitmapInfo 参数设置为忽略掉 alpha 通道的原因。
+        //这里创建的contexts是没有透明因素的。在UI渲染的时候，实际上是把多个图层按像素叠加计算的过程，需要对每一个像素进行 RGBA 的叠加计算。当某个 layer 的是不透明的，也就是 opaque 为 YES 时，GPU 可以直接忽略掉其下方的图层，这就减少了很多工作量。这也是调用 CGBitmapContextCreate 时 bitmapInfo 参数设置为忽略掉 alpha 通道的原因
         // kCGImageAlphaNone is not supported in CGBitmapContextCreate.
         // Since the original image here has no alpha info, use kCGImageAlphaNoneSkipLast
         // to create bitmap graphics contexts without alpha info.
@@ -238,6 +238,7 @@ static const CGFloat kDestSeemOverlap = 2.0f;   // the numbers of pixels to over
     }
 }
 
+//gif png 不解码
 + (BOOL)shouldDecodeImage:(nullable UIImage *)image {
     // Prevent "CGBitmapContextCreateImage: invalid context 0x0" error
     if (image == nil) {
@@ -267,6 +268,7 @@ static const CGFloat kDestSeemOverlap = 2.0f;   // the numbers of pixels to over
     return YES;
 }
 
+//是否允许裁剪
 + (BOOL)shouldScaleDownImage:(nonnull UIImage *)image {
     BOOL shouldScaleDown = YES;
         
@@ -274,7 +276,7 @@ static const CGFloat kDestSeemOverlap = 2.0f;   // the numbers of pixels to over
     CGSize sourceResolution = CGSizeZero;
     sourceResolution.width = CGImageGetWidth(sourceImageRef);
     sourceResolution.height = CGImageGetHeight(sourceImageRef);
-    
+     //判断目标总像素与最大支持压缩的像素比(60MB)
     float sourceTotalPixels = sourceResolution.width * sourceResolution.height;
     float imageScale = kDestTotalPixels / sourceTotalPixels;
     if (imageScale < 1) {
@@ -286,15 +288,17 @@ static const CGFloat kDestSeemOverlap = 2.0f;   // the numbers of pixels to over
     return shouldScaleDown;
 }
 
+//颜色空间
 + (CGColorSpaceRef)colorSpaceForImageRef:(CGImageRef)imageRef {
     // current
     CGColorSpaceModel imageColorSpaceModel = CGColorSpaceGetModel(CGImageGetColorSpace(imageRef));
     CGColorSpaceRef colorspaceRef = CGImageGetColorSpace(imageRef);
-    
+    //不支持颜色空间
     BOOL unsupportedColorSpace = (imageColorSpaceModel == kCGColorSpaceModelUnknown ||
                                   imageColorSpaceModel == kCGColorSpaceModelMonochrome ||
                                   imageColorSpaceModel == kCGColorSpaceModelCMYK ||
                                   imageColorSpaceModel == kCGColorSpaceModelIndexed);
+    ////使用RGB模式的颜色空间
     if (unsupportedColorSpace) {
         colorspaceRef = CGColorSpaceCreateDeviceRGB();
         CFAutorelease(colorspaceRef);
@@ -302,6 +306,7 @@ static const CGFloat kDestSeemOverlap = 2.0f;   // the numbers of pixels to over
     return colorspaceRef;
 }
 #elif SD_MAC
+//MAC不做处理
 + (nullable UIImage *)decodedImageWithImage:(nullable UIImage *)image {
     return image;
 }
