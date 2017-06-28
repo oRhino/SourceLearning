@@ -1,0 +1,1515 @@
+#SDWebImage源码学习基于版本4.0
+> 以前看见别人的轮子感觉太高深,给了自己懒惰的借口~~无奈一次次的碰壁让我觉得,I'm just a little bit caught in the middle.
+
+阅读之前对于SDWebImage的了解仅仅处于UIImageView+WebCache这个类别加载图片方法(sd_setImageWithURL:...)的使用和SDWebImageDownloader对于图片进行下载(downloadImageWithURL...)操作,然后就是为了面试肤浅的对于其缓存机制的实现原理的了解.
+
+学习源码的心得体验:
+
+1. 图片压缩,解码
+2. 网络请求,多线程
+3. 缓存机制
+4. 框架构建思想
+
+
+##SDWebImage简介
+SDWebImage是一个异步的图片下载框架,它支持缓存,并使用了类别(UIImageView, UIButton, MKAnnotationView)可以很方便的进行使用.
+
+1. 类别(UIImageView, UIButton, MKAnnotationView)用来加载网络图片并且对网络图片的缓存进行管理
+2. 采用异步方式来下载网络图片
+3. 采用异步方式，使用memory＋disk来缓存网络图片，自动管理缓存。
+4. 后台进行图片解压缩
+5. 保证相同URL的网络图片不会被重复下载
+6. 保证失效的URL不会被无限重试
+7. 不会阻塞主线程
+8. 性能
+9. 使用GCD和ARC
+10. 支持多种图片格式(JPEG,PNG,GIF,WebP,TIFF...)
+
+##头文件
+SDWebImageCompat
+一般项目我们都会定义一个头文件,包含一些宏定义,常量,或者常用的方法,它存在的意义无需多说.
+SDWebImageCompat中定义了一些相关平台适配的宏,简单的一些常量和内联函数,block等.
+关于宏定义的知识:
+
+1. `#`if 表达式 程序段1 #else 程序段2 #endif 含义:如果表达式成立,执行程序段1,否则执行程序段2 
+2. `#`if 表达式1 #elif 表达式2 #endif  类似于if(){} else if() {}
+3. 防止重复声明,头文件重复包含和编译 #ifndef 标识符 #define 标识符  程序段1 #else 程序段2 #endif  含义:如果标识符没有定义过(if not define) 进行宏定义,执行程序段1,否则执行程序段2.
+4. 取消宏定义:#undef
+5. 枚举:从枚举定义来看，NS_ENUM和NS_OPTIONS本质是一样的，仅仅从字面上来区分其用途。NS_ENUM是通用情况，NS_OPTIONS一般用来定义具有位移操作或特点的情况。
+
+枚举宏定义:
+
+```
+
+#ifndef NS_ENUM
+#define NS_ENUM(_type, _name) enum _name : _type _name; enum _name : _type
+#endif
+
+//使用
+typedef NS_ENUM(int,EnumName){
+    EnumNameType1,
+    EnumNameType2
+};
+//展开
+typedef enum EnumName:int EnumName;
+enum EnumName:int {
+    EnumNameType1,
+    EnumNameType2
+};
+
+```
+内联函数处理图片尺寸
+extern UIImage *SDScaledImageForKey(NSString *key, UIImage *image);
+
+```
+inline UIImage *SDScaledImageForKey(NSString * _Nullable key, UIImage * _Nullable image) {
+    if (!image) {
+        return nil;
+    }
+    
+#if SD_MAC
+    return image;
+#elif SD_UIKIT || SD_WATCH
+    //动图
+    if ((image.images).count > 0) {
+        NSMutableArray<UIImage *> *scaledImages = [NSMutableArray array];
+
+        for (UIImage *tempImage in image.images) {
+            //递归调用
+            [scaledImages addObject:SDScaledImageForKey(key, tempImage)];
+        }
+        //用一组图片创建一个动态图片
+        return [UIImage animatedImageWithImages:scaledImages duration:image.duration];
+    }
+    else {
+#if SD_WATCH
+        if ([[WKInterfaceDevice currentDevice] respondsToSelector:@selector(screenScale)]) {
+#elif SD_UIKIT
+        if ([[UIScreen mainScreen] respondsToSelector:@selector(scale)]) {
+#endif
+            //根据后缀给scale赋值
+            CGFloat scale = 1;
+            if (key.length >= 8) {
+                NSRange range = [key rangeOfString:@"@2x."];
+                if (range.location != NSNotFound) {
+                    scale = 2.0;
+                }
+                
+                range = [key rangeOfString:@"@3x."];
+                if (range.location != NSNotFound) {
+                    scale = 3.0;
+                }
+            }
+            //使用initWithCGImage来根据Core Graphics的图片构建UIImage。
+            UIImage *scaledImage = [[UIImage alloc] initWithCGImage:image.CGImage scale:scale orientation:image.imageOrientation];
+            image = scaledImage;
+        }
+        return image;
+    }
+#endif
+}
+
+```
+线程安全:dispatch_main_async_safe
+
+```
+/*判断当前队列是否是主队列,如果是直接执行,不是就通过dispatch_async(dispatch_get_main_queue(), block)执行,在主线程中执行dispatch_async(dispatch_get_main_queue(), block)有可能会crash.*/
+#ifndef dispatch_main_async_safe
+#define dispatch_main_async_safe(block)\
+    if (strcmp(dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL), dispatch_queue_get_label(dispatch_get_main_queue())) == 0) {\
+        block();\
+    } else {\
+        dispatch_async(dispatch_get_main_queue(), block);\
+    }
+#endif
+
+```
+
+##图片解码
+相关类或文件
+
+1. NSData+ImageContentType
+2. UIImage+GIF
+3. UIImage+MultiFormat
+4. SDWebImageDecoder
+5. NSImage+WebCache(MAC_OS)
+
+###图片格式:NSData+ImageContentType
+当文件使用二进制流作为传输时，需要制定一套规范，用来区分该文件到底是什么类型的。实际上每个文件的前几个字节都标识着文件的类型，对于一般的图片文件，通过第一个字节(WebP需要12字节)可以辨识出文件类型。
+
+1. JPEG (jpg)，文件头：FFD8FFE1
+2. PNG (png)，文件头：89504E47
+3. GIF (gif)，文件头：47494638
+4. TIFF tif;tiff 0x49492A00
+5. TIFF tif;tiff 0x4D4D002A
+6. RAR Archive (rar)，文件头：52617221
+7. WebP : 524946462A73010057454250
+
+这个方法的实现思路是这样的：
+1.取data的第一个字节的数据，辨识出JPG/JPEG、PNG、GIF、TIFF这几种图片格式，返回其对应的MIME类型。
+2.如果第一个字节是数据为0x52，需要进一步检测，因为以0x52为文件头的文件也可能会是rar等类型(可以在文件头查看)，而webp的前12字节有着固定的数据：
+
+```
+// 根据二进制文件头的第一个字节来判断文件的类型()
++ (SDImageFormat)sd_imageFormatForImageData:(nullable NSData *)data {
+    if (!data) {
+        return SDImageFormatUndefined;
+    }
+    //获取一个字节的数据
+    uint8_t c;
+    [data getBytes:&c length:1];
+    //一个字节两个字符
+    switch (c) {
+        case 0xFF:
+            return SDImageFormatJPEG;
+        case 0x89:
+            return SDImageFormatPNG;
+        case 0x47:
+            return SDImageFormatGIF;
+        case 0x49:
+        case 0x4D:
+            return SDImageFormatTIFF;
+        case 0x52:
+            //WEBP
+            // R as RIFF for WEBP
+            if (data.length < 12) {
+                return SDImageFormatUndefined;
+            }
+            
+            NSString *testString = [[NSString alloc] initWithData:[data subdataWithRange:NSMakeRange(0, 12)] encoding:NSASCIIStringEncoding];
+            if ([testString hasPrefix:@"RIFF"] && [testString hasSuffix:@"WEBP"]) {
+                return SDImageFormatWebP;
+            }
+    }
+    return SDImageFormatUndefined;
+}
+
+```
+
+###支持显示GIF:(只是显示图片的第一帧)UIImage+GIF
+当图片源有多个(gif格式)的时候,通过CGImageSourceRef获取图片的第一帧返回,这里主要涉及<Image I/0>框架的内容
+
+```
++ (UIImage *)sd_animatedGIFWithData:(NSData *)data {
+    if (!data) {
+        return nil;
+    }
+    //获取图片源CGImageSourceRef
+    CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
+    
+    //获取图片源数量
+    size_t count = CGImageSourceGetCount(source);
+
+    UIImage *staticImage;
+
+    if (count <= 1) {
+        //只有一个图片源,说明不是动画,直接实例化返回
+        staticImage = [[UIImage alloc] initWithData:data];
+    } else {
+        
+        //这里仅仅绘制gif的第一帧内容,如果支持GIF播放可以使用FLAnimatedImageView这个类别
+#if SD_WATCH
+        CGFloat scale = 1;
+        scale = [WKInterfaceDevice currentDevice].screenScale;
+#elif SD_UIKIT
+        CGFloat scale = 1;
+        scale = [UIScreen mainScreen].scale;
+#endif
+        
+        //获取第一帧的CGImage
+        CGImageRef CGImage = CGImageSourceCreateImageAtIndex(source, 0, NULL);
+#if SD_UIKIT || SD_WATCH
+        //绘制
+        UIImage *frameImage = [UIImage imageWithCGImage:CGImage scale:scale orientation:UIImageOrientationUp];
+        staticImage = [UIImage animatedImageWithImages:@[frameImage] duration:0.0f];
+#elif SD_MAC
+        staticImage = [[UIImage alloc] initWithCGImage:CGImage size:NSZeroSize];
+#endif
+        CGImageRelease(CGImage);
+    }
+    //释放资源
+    CFRelease(source);
+
+    return staticImage;
+}
+
+```
+
+### UIImage <->NSData的相互转换:UIImage+MultiFormat
+
++ (nullable UIImage *)sd_imageWithData:(nullable NSData *)data;
+ 
+```
++ (nullable UIImage *)sd_imageWithData:(nullable NSData *)data {
+    if (!data) {
+        return nil;
+    }
+    UIImage *image;
+    //格式判断
+    SDImageFormat imageFormat = [NSData sd_imageFormatForImageData:data];
+    if (imageFormat == SDImageFormatGIF) {
+        //gif 返回第一帧图像
+        image = [UIImage sd_animatedGIFWithData:data];
+    }
+#ifdef SD_WEBP
+    else if (imageFormat == SDImageFormatWebP)
+    { //webp
+        image = [UIImage sd_imageWithWebPData:data];
+    }
+#endif
+    else {
+        image = [[UIImage alloc] initWithData:data];
+#if SD_UIKIT || SD_WATCH
+        //获取方向信息
+        UIImageOrientation orientation = [self sd_imageOrientationFromImageData:data];
+        //实例化  UIImageOrientationUp为默认,直接返回即可
+        if (orientation != UIImageOrientationUp) {
+            image = [UIImage imageWithCGImage:image.CGImage
+                                        scale:image.scale
+                                  orientation:orientation];
+        }
+#endif
+    }
+    return image;
+}
+
+```
+
+<Image I/O>获取图片信息(方向)
+
+```
+#if SD_UIKIT || SD_WATCH
+//获取图片的方向
++(UIImageOrientation)sd_imageOrientationFromImageData:(nonnull NSData *)imageData {
+    UIImageOrientation result = UIImageOrientationUp;
+    //获取图片源数据
+    CGImageSourceRef imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
+    if (imageSource) {
+        //首帧图片的属性信息
+        CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, NULL);
+        if (properties) {
+            CFTypeRef val;
+            int exifOrientation;
+            //获取属性字典中的方向信息
+            val = CFDictionaryGetValue(properties, kCGImagePropertyOrientation);
+            if (val) {
+                CFNumberGetValue(val, kCFNumberIntType, &exifOrientation);
+                //转换
+                result = [self sd_exifOrientationToiOSOrientation:exifOrientation];
+            } // else - if it's not set it remains at up
+            CFRelease((CFTypeRef) properties);
+        } else {
+            //NSLog(@"NO PROPERTIES, FAIL");
+        }
+        CFRelease(imageSource);
+    }
+    return result;
+}
+
+```
+
+UIImage -> NSData
+-(nullable NSData *)sd_imageData;
+-(nullable NSData *)sd_imageDataAsFormat:(SDImageFormat)imageFormat;
+CGImageAlphaInfo是一个枚举,表示alpha分量的位置及颜色分量是否做预处理： 
+
+- kCGImageAlphaLast：alpha分量存储在每个像素中最不显著的位置，如RGBA。
+ - kCGImageAlphaFirst：alpha分量存储在每个像素中最显著的位置，如ARGB。
+ - kCGImageAlphaPremultipliedLast：alpha分量存储在每个像素中最不显著的位置，但颜色分量已经乘以了alpha值。
+ - kCGImageAlphaPremultipliedFirst：alpha分量存储在每个像素中最显著的位置，同时颜色分量已经乘以了alpha值。
+ - kCGImageAlphaNoneSkipLast：没有alpha分量。如果像素的总大小大于颜色空间中颜色分量数目所需要的空间，则最不显著位置的位将被忽略。
+ - kCGImageAlphaNoneSkipFirst：没有alpha分量。如果像素的总大小大于颜色空间中颜色分量数目所需要的空间，则最显著位置的位将被忽略。
+ - kCGImageAlphaNone：等于kCGImageAlphaNoneSkipLast。
+
+
+```
+- (nullable NSData *)sd_imageData {
+    return [self sd_imageDataAsFormat:SDImageFormatUndefined];
+}
+
+//将UIImage对象转换成二进制,有透明通道的返回PNG,否则返回JPEG
+- (nullable NSData *)sd_imageDataAsFormat:(SDImageFormat)imageFormat {
+    NSData *imageData = nil;
+    if (self) {
+#if SD_UIKIT || SD_WATCH
+        int alphaInfo = CGImageGetAlphaInfo(self.CGImage);
+        //透明通道
+        BOOL hasAlpha = !(alphaInfo == kCGImageAlphaNone ||
+                          alphaInfo == kCGImageAlphaNoneSkipFirst ||
+                          alphaInfo == kCGImageAlphaNoneSkipLast);
+        
+        BOOL usePNG = hasAlpha;
+        
+        // the imageFormat param has priority here. But if the format is undefined, we relly on the alpha channel
+        if (imageFormat != SDImageFormatUndefined) {
+            usePNG = (imageFormat == SDImageFormatPNG);
+        }
+        
+        if (usePNG) {
+            imageData = UIImagePNGRepresentation(self);
+        } else {
+            imageData = UIImageJPEGRepresentation(self, (CGFloat)1.0);
+        }
+#else
+        NSBitmapImageFileType imageFileType = NSJPEGFileType;
+        if (imageFormat == SDImageFormatGIF) {
+            imageFileType = NSGIFFileType;
+        } else if (imageFormat == SDImageFormatPNG) {
+            imageFileType = NSPNGFileType;
+        }
+        
+        imageData = [NSBitmapImageRep representationOfImageRepsInArray:self.representations
+                                                             usingType:imageFileType
+                                                            properties:@{}];
+#endif
+    }
+    return imageData;
+}
+
+```
+
+###SDWebImageDecoder解码
+SDWebImageDecoder文件中是一个对UIImage添加的分类,主要针对内存较小的设备进行图片解码和压缩处理.
+
+常量
+
+```
+//用来说明每个像素占用内存多少个字节，在这里是占用4个字节。（图像在iOS设备上是以像素为单位显示的）
+static const size_t kBytesPerPixel = 4;
+//表示每一个组件占多少位。举例，比方说RGBA，其中R（红色）G（绿色）B（蓝色）A（透明度）是4个组件，每个像素由这4个组件组成，那么我们就用8位来表示着每一个组件，所以这个RGBA就是8*4 = 32位。
+static const size_t kBitsPerComponent = 8;
+
+/*
+ * 最大支持压缩图像源的大小
+ * Suggested value for iPad1 and iPhone 3GS: 60.
+ * Suggested value for iPad2 and iPhone 4: 120.
+ * Suggested value for iPhone 3G and iPod 2 and earlier devices: 30.
+ */
+static const CGFloat kDestImageSizeMB = 60.0f;
+
+/*
+ * 原图方块的大小
+ * Suggested value for iPad1 and iPhone 3GS: 20.
+ * Suggested value for iPad2 and iPhone 4: 40.
+ * Suggested value for iPhone 3G and iPod 2 and earlier devices: 10.
+ */
+static const CGFloat kSourceImageTileSizeMB = 20.0f;
+//1M有多少字节
+static const CGFloat kBytesPerMB = 1024.0f * 1024.0f;
+//1M有多少个像素
+static const CGFloat kPixelsPerMB = kBytesPerMB / kBytesPerPixel;
+//目标总像素
+static const CGFloat kDestTotalPixels = kDestImageSizeMB * kPixelsPerMB;
+//原图放宽总像素
+static const CGFloat kTileTotalPixels = kSourceImageTileSizeMB * kPixelsPerMB;
+//重叠像素大小
+static const CGFloat kDestSeemOverlap = 2.0f;   // the numbers of pixels to overlap the seems where tiles meet.
+
+```
+
+私有方法
+- 判断是否需要解码
+- 判断是否需要压缩处理
+- 获取颜色空间
+
+```
+//gif png 不解码
++ (BOOL)shouldDecodeImage:(nullable UIImage *)image {
+    // Prevent "CGBitmapContextCreateImage: invalid context 0x0" error
+    if (image == nil) {
+        return NO;
+    }
+    // do not decode animated images
+    //动画不进行解码
+    if (image.images != nil) {
+        return NO;
+    }
+    
+    CGImageRef imageRef = image.CGImage;
+    
+    //透明通道信息
+    CGImageAlphaInfo alpha = CGImageGetAlphaInfo(imageRef);
+    BOOL anyAlpha = (alpha == kCGImageAlphaFirst ||
+                     alpha == kCGImageAlphaLast ||
+                     alpha == kCGImageAlphaPremultipliedFirst ||
+                     alpha == kCGImageAlphaPremultipliedLast);
+    // do not decode images with alpha
+    if (anyAlpha) {
+        //有透明通道不进行解码
+        return NO;
+    }
+    
+    return YES;
+}
+//是否进行压缩
++ (BOOL)shouldScaleDownImage:(nonnull UIImage *)image {
+    BOOL shouldScaleDown = YES;
+        
+    CGImageRef sourceImageRef = image.CGImage;
+    CGSize sourceResolution = CGSizeZero;
+    sourceResolution.width = CGImageGetWidth(sourceImageRef);
+    sourceResolution.height = CGImageGetHeight(sourceImageRef);
+    
+    float sourceTotalPixels = sourceResolution.width * sourceResolution.height;
+    //判断目标总像素与最大支持压缩的像素比(60MB)
+    float imageScale = kDestTotalPixels / sourceTotalPixels;
+    if (imageScale < 1) {
+        shouldScaleDown = YES;
+    } else {
+        shouldScaleDown = NO;
+    }
+    return shouldScaleDown;
+}
+//获取颜色空间
++ (CGColorSpaceRef)colorSpaceForImageRef:(CGImageRef)imageRef {
+    // current
+    CGColorSpaceModel imageColorSpaceModel = CGColorSpaceGetModel(CGImageGetColorSpace(imageRef));
+    CGColorSpaceRef colorspaceRef = CGImageGetColorSpace(imageRef);
+    //不支持颜色空间
+    BOOL unsupportedColorSpace = (imageColorSpaceModel == kCGColorSpaceModelUnknown ||
+                                  imageColorSpaceModel == kCGColorSpaceModelMonochrome ||
+                                  imageColorSpaceModel == kCGColorSpaceModelCMYK ||
+                                  imageColorSpaceModel == kCGColorSpaceModelIndexed);
+    if (unsupportedColorSpace) {
+        //使用RGB模式的颜色空间
+        colorspaceRef = CGColorSpaceCreateDeviceRGB();
+        CFAutorelease(colorspaceRef);
+    }
+    return colorspaceRef;
+}
+
+```
+
+解码:
+
+```
++ (nullable UIImage *)decodedImageWithImage:(nullable UIImage *)image {
+    if (![UIImage shouldDecodeImage:image]) {
+        return image;
+    }
+    
+    // autorelease the bitmap context and all vars to help system to free memory when there are memory warning.
+    // on iOS7, do not forget to call [[SDImageCache sharedImageCache] clearMemory];
+    @autoreleasepool{
+        
+        CGImageRef imageRef = image.CGImage;
+        CGColorSpaceRef colorspaceRef = [UIImage colorSpaceForImageRef:imageRef];
+        
+        size_t width = CGImageGetWidth(imageRef);
+        size_t height = CGImageGetHeight(imageRef);
+        //每行的像素占用字节数
+        size_t bytesPerRow = kBytesPerPixel * width;
+        
+        //这里创建的contexts是没有透明因素的。在UI渲染的时候，实际上是把多个图层按像素叠加计算的过程，需要对每一个像素进行 RGBA 的叠加计算。当某个 layer 的是不透明的，也就是 opaque 为 YES 时，GPU 可以直接忽略掉其下方的图层，这就减少了很多工作量。这也是调用 CGBitmapContextCreate 时 bitmapInfo 参数设置为忽略掉 alpha 通道的原因。
+        CGContextRef context = CGBitmapContextCreate(NULL,
+                                                     width,
+                                                     height,
+                                                     kBitsPerComponent,
+                                                     bytesPerRow,
+                                                     colorspaceRef,
+                                                     kCGBitmapByteOrderDefault|kCGImageAlphaNoneSkipLast);
+        if (context == NULL) {
+            return image;
+        }
+        
+        // Draw the image into the context and retrieve the new bitmap image without alpha
+        //绘制图像 得到没有透明通道的图片
+        CGContextDrawImage(context, CGRectMake(0, 0, width, height), imageRef);
+        CGImageRef imageRefWithoutAlpha = CGBitmapContextCreateImage(context);
+        UIImage *imageWithoutAlpha = [UIImage imageWithCGImage:imageRefWithoutAlpha
+                                                         scale:image.scale
+                                                   orientation:image.imageOrientation];
+        
+        CGContextRelease(context);
+        CGImageRelease(imageRefWithoutAlpha);
+        
+        return imageWithoutAlpha;
+    }
+}
+```
+压缩
+
+```
++ (nullable UIImage *)decodedAndScaledDownImageWithImage:(nullable UIImage *)image {
+    //检测图像能否解码
+    if (![UIImage shouldDecodeImage:image]) {
+        return image;
+    }
+   //检查图像应不应该压缩，原则是：如果图像大于目标尺寸才需要压缩
+    if (![UIImage shouldScaleDownImage:image]) {
+        return [UIImage decodedImageWithImage:image];
+    }
+    
+    CGContextRef destContext;
+    
+    // autorelease the bitmap context and all vars to help system to free memory when there are memory warning.
+    // on iOS7, do not forget to call [[SDImageCache sharedImageCache] clearMemory];
+    @autoreleasepool {
+        //拿到数据信息 sourceImageRef
+        CGImageRef sourceImageRef = image.CGImage;
+        
+        //计算原图的像素 sourceResolution
+        CGSize sourceResolution = CGSizeZero;
+        sourceResolution.width = CGImageGetWidth(sourceImageRef);
+        sourceResolution.height = CGImageGetHeight(sourceImageRef);
+        //计算原图总像素 sourceTotalPixels
+        float sourceTotalPixels = sourceResolution.width * sourceResolution.height;
+        // Determine the scale ratio to apply to the input image
+        // that results in an output image of the defined size.
+        // see kDestImageSizeMB, and how it relates to destTotalPixels.
+        
+        //计算压缩比例 imageScale
+        float imageScale = kDestTotalPixels / sourceTotalPixels;
+        //计算目标像素 destResolution
+        CGSize destResolution = CGSizeZero;
+        destResolution.width = (int)(sourceResolution.width*imageScale);
+        destResolution.height = (int)(sourceResolution.height*imageScale);
+        
+        // current color space
+        //获取当前的颜色空间 colorspaceRef
+        CGColorSpaceRef colorspaceRef = [UIImage colorSpaceForImageRef:sourceImageRef];
+        
+        
+        //计算并创建目标图像的内存 destBitmapData
+        size_t bytesPerRow = kBytesPerPixel * destResolution.width;
+        
+        // Allocate enough pixel data to hold the output image.
+        void* destBitmapData = malloc( bytesPerRow * destResolution.height );
+        if (destBitmapData == NULL) {
+            return image;
+        }
+        
+        // kCGImageAlphaNone is not supported in CGBitmapContextCreate.
+        // Since the original image here has no alpha info, use kCGImageAlphaNoneSkipLast
+        // to create bitmap graphics contexts without alpha info.
+        //创建目标上下文 destContext
+        destContext = CGBitmapContextCreate(destBitmapData,
+                                            destResolution.width,
+                                            destResolution.height,
+                                            kBitsPerComponent,
+                                            bytesPerRow,
+                                            colorspaceRef,
+                                            kCGBitmapByteOrderDefault|kCGImageAlphaNoneSkipLast);
+        
+        if (destContext == NULL) {
+            free(destBitmapData);
+            return image;
+        }
+        //设置压缩质量
+        CGContextSetInterpolationQuality(destContext, kCGInterpolationHigh);
+        
+        // Now define the size of the rectangle to be used for the
+        // incremental blits from the input image to the output image.
+        // we use a source tile width equal to the width of the source
+        // image due to the way that iOS retrieves image data from disk.
+        // iOS must decode an image from disk in full width 'bands', even
+        // if current graphics context is clipped to a subrect within that
+        // band. Therefore we fully utilize all of the pixel data that results
+        // from a decoding opertion by achnoring our tile size to the full
+        // width of the input image.
+        //计算第一个原图方块 sourceTile，这个方块的宽度同原图一样，高度根据方块容量计算
+        CGRect sourceTile = CGRectZero;
+        sourceTile.size.width = sourceResolution.width;
+        // The source tile height is dynamic. Since we specified the size
+        // of the source tile in MB, see how many rows of pixels high it
+        // can be given the input image width.
+        sourceTile.size.height = (int)(kTileTotalPixels / sourceTile.size.width );
+        sourceTile.origin.x = 0.0f;
+        // The output tile is the same proportions as the input tile, but
+        // scaled to image scale.
+        
+        //计算目标图像方块 destTile
+        CGRect destTile;
+        destTile.size.width = destResolution.width;
+        destTile.size.height = sourceTile.size.height * imageScale;
+        destTile.origin.x = 0.0f;
+        
+        //计算原图像方块与方块重叠的像素大小 sourceSeemOverlap
+        // The source seem overlap is proportionate to the destination seem overlap.
+        // this is the amount of pixels to overlap each tile as we assemble the ouput image.
+        float sourceSeemOverlap = (int)((kDestSeemOverlap/destResolution.height)*sourceResolution.height);
+        CGImageRef sourceTileImageRef;
+        
+        
+//        计算原图像需要被分割成多少个方块 iterations
+        // calculate the number of read/write operations required to assemble the
+        // output image.
+        int iterations = (int)( sourceResolution.height / sourceTile.size.height );
+        // If tile height doesn't divide the image height evenly, add another iteration
+        // to account for the remaining pixels.
+        int remainder = (int)sourceResolution.height % (int)sourceTile.size.height;
+        if(remainder) {
+            iterations++;
+        }
+        
+        //根据重叠像素计算原图方块的大小后，获取原图中该方块内的数据，把该数据写入到相对应的目标方块中
+        // Add seem overlaps to the tiles, but save the original tile height for y coordinate calculations.
+        float sourceTileHeightMinusOverlap = sourceTile.size.height;
+        sourceTile.size.height += sourceSeemOverlap;
+        destTile.size.height += kDestSeemOverlap;
+        for( int y = 0; y < iterations; ++y ) {
+            @autoreleasepool {
+                sourceTile.origin.y = y * sourceTileHeightMinusOverlap + sourceSeemOverlap;
+                destTile.origin.y = destResolution.height - (( y + 1 ) * sourceTileHeightMinusOverlap * imageScale + kDestSeemOverlap);
+                sourceTileImageRef = CGImageCreateWithImageInRect( sourceImageRef, sourceTile );
+                if( y == iterations - 1 && remainder ) {
+                    float dify = destTile.size.height;
+                    destTile.size.height = CGImageGetHeight( sourceTileImageRef ) * imageScale;
+                    dify -= destTile.size.height;
+                    destTile.origin.y += dify;
+                }
+                CGContextDrawImage( destContext, destTile, sourceTileImageRef );
+                CGImageRelease( sourceTileImageRef );
+            }
+        }
+        
+        //返回目标图像
+        CGImageRef destImageRef = CGBitmapContextCreateImage(destContext);
+        CGContextRelease(destContext);
+        if (destImageRef == NULL) {
+            return image;
+        }
+        UIImage *destImage = [UIImage imageWithCGImage:destImageRef scale:image.scale orientation:image.imageOrientation];
+        CGImageRelease(destImageRef);
+        if (destImage == nil) {
+            return image;
+        }
+        return destImage;
+    }
+}
+
+```
+
+##缓存机制
+
+###缓存配置信息SDImageCacheConfig
+
+```
+/**
+ * Decompressing images that are downloaded and cached can improve performance but can consume lot of memory.
+ * Defaults to YES. Set this to NO if you are experiencing a crash due to excessive memory consumption.
+ 是否解压缩图片，默认为YES
+ */
+@property (assign, nonatomic) BOOL shouldDecompressImages;
+
+/**
+ *  disable iCloud backup [defaults to YES]
+ 是否禁用iCloud备份， 默认为YES
+ */
+@property (assign, nonatomic) BOOL shouldDisableiCloud;
+
+/**
+ * use memory cache [defaults to YES]
+  是否缓存到内存中，默认为YES
+ */
+@property (assign, nonatomic) BOOL shouldCacheImagesInMemory;
+
+/**
+ * The maximum length of time to keep an image in the cache, in seconds
+  最大的缓存不过期时间， 单位为秒，默认为一周的时间
+ */
+@property (assign, nonatomic) NSInteger maxCacheAge;
+
+/**
+ * The maximum size of the cache, in bytes.
+ 最大的缓存尺寸，单位为字节
+ */
+@property (assign, nonatomic) NSUInteger maxCacheSize;
+
+```
+
+###缓存SDImageCache
+SDImageCache是一个缓存的抽象,主要功能包括缓存信息的配置,设置缓存路径,进行缓存,查询缓存,清除缓存等.它主要使用memory进行缓存,当然也可以选择同时缓存在磁盘.缓存在磁盘的操作是异步进行的,不用担心造成UI线程的延迟.
+
+缓存在磁盘中的路径默认是在沙盒路径的Library/Caches/default/com.hackemist.SDWebImageCache.default路径下,当然我们也可以自定义存储路径,图片文件名是经过图片的URL进行MD5加密处理的字符串.
+
+```
+- (nullable NSString *)cachedFileNameForKey:(nullable NSString *)key {
+    const char *str = key.UTF8String;
+    if (str == NULL) {
+        str = "";
+    }
+    unsigned char r[CC_MD5_DIGEST_LENGTH];
+    CC_MD5(str, (CC_LONG)strlen(str), r);
+    NSString *filename = [NSString stringWithFormat:@"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%@",
+                          r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10],
+                          r[11], r[12], r[13], r[14], r[15], [key.pathExtension isEqualToString:@""] ? @"" : [NSString stringWithFormat:@".%@", key.pathExtension]];
+
+    return filename;
+}
+```
+
+文件读写操作全部是在同一个串行队列中进行的,保证了读写的安全性
+
+```
+//检查队列label,保证IO操作在IOQueue队列中执行
+- (void)checkIfQueueIsIOQueue {
+    const char *currentQueueLabel = dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL);
+    const char *ioQueueLabel = dispatch_queue_get_label(self.ioQueue);
+    if (strcmp(currentQueueLabel, ioQueueLabel) != 0) {
+        NSLog(@"This method should be called from the ioQueue");
+    }
+}
+```
+
+缓存操作:memory通过AutoPurgeCache进行缓存,其实就是NSCache的子类,只是在这里增加了内存紧张的监听,用于及时清理缓存.磁盘中的操作就是通过文件管理器NSFileManage写入.
+
+```
+//最终方法
+- (void)storeImage:(nullable UIImage *)image
+         imageData:(nullable NSData *)imageData
+            forKey:(nullable NSString *)key
+            toDisk:(BOOL)toDisk
+        completion:(nullable SDWebImageNoParamsBlock)completionBlock {
+    if (!image || !key) {
+        //为空
+        if (completionBlock) {
+            completionBlock();
+        }
+        return;
+    }
+    //允许memory缓存
+    if (self.config.shouldCacheImagesInMemory) {
+        //缓存,计算大小,cache
+        NSUInteger cost = SDCacheCostForImage(image);
+        [self.memCache setObject:image forKey:key cost:cost];
+    }
+    
+    if (toDisk) {
+        //缓存到磁盘
+        dispatch_async(self.ioQueue, ^{
+            NSData *data = imageData;
+            
+            if (!data && image) {
+                //图片格式,转换为二进制
+                SDImageFormat imageFormatFromData = [NSData sd_imageFormatForImageData:data];
+                data = [image sd_imageDataAsFormat:imageFormatFromData];
+            }
+            
+            [self storeImageDataToDisk:data forKey:key];
+            if (completionBlock) {
+                //回到主线程 进行回调
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionBlock();
+                });
+            }
+        });
+    } else {
+        //不进行磁盘缓存 直接回调
+        if (completionBlock) {
+            completionBlock();
+        }
+    }
+}
+
+///存储到磁盘
+- (void)storeImageDataToDisk:(nullable NSData *)imageData forKey:(nullable NSString *)key {
+    if (!imageData || !key) {
+        return;
+    }
+    //检查当前队列是否是IOQueue
+    [self checkIfQueueIsIOQueue];
+    
+    if (![_fileManager fileExistsAtPath:_diskCachePath]) {
+        [_fileManager createDirectoryAtPath:_diskCachePath withIntermediateDirectories:YES attributes:nil error:NULL];
+    }
+    
+    // get cache Path for image key
+    NSString *cachePathForKey = [self defaultCachePathForKey:key];
+    // transform to NSUrl
+    NSURL *fileURL = [NSURL fileURLWithPath:cachePathForKey];
+    
+    [_fileManager createFileAtPath:cachePathForKey contents:imageData attributes:nil];
+    
+    // disable iCloud backup
+    if (self.config.shouldDisableiCloud) {
+        [fileURL setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
+    }
+}
+
+```
+磁盘缓存管理:清除过期的缓存文件和计算所有缓存文件的大小,通过NSDirectoryEnumerator迭代器遍历获取文件的信息进行处理和计算
+
+```
+//删除过期的缓存
+- (void)deleteOldFilesWithCompletionBlock:(nullable SDWebImageNoParamsBlock)completionBlock {
+    dispatch_async(self.ioQueue, ^{
+        NSURL *diskCacheURL = [NSURL fileURLWithPath:self.diskCachePath isDirectory:YES];
+        
+        //真正的目录(boolean NSNumber),资源的最后修改时间(NSDate),占用大小(NSNumber)
+        NSArray<NSString *> *resourceKeys = @[NSURLIsDirectoryKey, NSURLContentModificationDateKey, NSURLTotalFileAllocatedSizeKey];
+
+        // This enumerator prefetches useful properties for our cache files.
+        NSDirectoryEnumerator *fileEnumerator = [_fileManager enumeratorAtURL:diskCacheURL
+                                                   includingPropertiesForKeys:resourceKeys
+                                                                      options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                                 errorHandler:NULL];
+        
+        //过期时间
+        NSDate *expirationDate = [NSDate dateWithTimeIntervalSinceNow:-self.config.maxCacheAge];
+        NSMutableDictionary<NSURL *, NSDictionary<NSString *, id> *> *cacheFiles = [NSMutableDictionary dictionary];
+        NSUInteger currentCacheSize = 0;
+        
+        //遍历所有缓存目录的文件,两个目的:
+        //1:通过文件信息删除过期的缓存
+        //2.计算所有文件的大小,根据最大缓存大小进行清除
+        //需要删除的文件列表
+        NSMutableArray<NSURL *> *urlsToDelete = [[NSMutableArray alloc] init];
+        for (NSURL *fileURL in fileEnumerator) {
+            NSError *error;
+            
+            //指定文件信息类型的字典
+            NSDictionary<NSString *, id> *resourceValues = [fileURL resourceValuesForKeys:resourceKeys error:&error];
+
+            // Skip directories and errors.
+            if (error || !resourceValues || [resourceValues[NSURLIsDirectoryKey] boolValue]) {
+                continue;
+            }
+
+            // Remove files that are older than the expiration date;
+            //根据文件修改时间将过期的文件添加到删除列表中
+            NSDate *modificationDate = resourceValues[NSURLContentModificationDateKey];
+            if ([[modificationDate laterDate:expirationDate] isEqualToDate:expirationDate]) {
+                [urlsToDelete addObject:fileURL];
+                continue;
+            }
+
+            // Store a reference to this file and account for its total size.
+            NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
+            //累加计算文件占用总大小
+            currentCacheSize += totalAllocatedSize.unsignedIntegerValue;
+            //储存剩下文件的文件信息 NSURL:NSDictionay
+            cacheFiles[fileURL] = resourceValues;
+        }
+        
+        for (NSURL *fileURL in urlsToDelete) {
+            [_fileManager removeItemAtURL:fileURL error:nil];
+        }
+
+        // If our remaining disk cache exceeds a configured maximum size, perform a second
+        // size-based cleanup pass.  We delete the oldest files first.
+        
+        //所有文件占用大小超出
+        if (self.config.maxCacheSize > 0 && currentCacheSize > self.config.maxCacheSize) {
+            // Target half of our maximum cache size for this cleanup pass.
+            //以最大限制大小的一半为基准
+            const NSUInteger desiredCacheSize = self.config.maxCacheSize / 2;
+
+            // Sort the remaining cache files by their last modification time (oldest first).
+            //根据文件最后修改时间进行排序
+            NSArray<NSURL *> *sortedFiles = [cacheFiles keysSortedByValueWithOptions:NSSortConcurrent
+                                                                     usingComparator:^NSComparisonResult(id obj1, id obj2) {
+                                                                         return [obj1[NSURLContentModificationDateKey] compare:obj2[NSURLContentModificationDateKey]];
+                                                                     }];
+
+            // Delete files until we fall below our desired cache size.
+            for (NSURL *fileURL in sortedFiles) {
+                if ([_fileManager removeItemAtURL:fileURL error:nil]) {
+                    NSDictionary<NSString *, id> *resourceValues = cacheFiles[fileURL];
+                    NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
+                    currentCacheSize -= totalAllocatedSize.unsignedIntegerValue;
+
+                    if (currentCacheSize < desiredCacheSize) {
+                        break;
+                    }
+                }
+            }
+        }
+        if (completionBlock) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionBlock();
+            });
+        }
+    });
+}
+
+```
+
+###下载操作
+
+- SDWebImageOperation
+- SDWebImageDownloader
+- SDWebImageDownloaderOperation
+
+SDWebImageOperation
+
+```
+//协议 用于发送取消操作
+@protocol SDWebImageOperation <NSObject>
+- (void)cancel;
+@end
+```
+
+SDWebImageDownloaderOperation
+
+首先是定义一些通知,用于监听下载操作的全过程
+```
+//任务开始
+extern NSString * _Nonnull const SDWebImageDownloadStartNotification;
+//接收到数据
+extern NSString * _Nonnull const SDWebImageDownloadReceiveResponseNotification;
+//暂停
+extern NSString * _Nonnull const SDWebImageDownloadStopNotification;
+//完成
+extern NSString * _Nonnull const SDWebImageDownloadFinishNotification;
+
+```
+然后是定义了一个接口(协议)SDWebImageDownloaderOperationInterface,由操作对象(NSOperation的子类)进行实现.必须遵循这个协议.
+
+```
+@protocol SDWebImageDownloaderOperationInterface<NSObject>
+
+//使用NSURLRequest,NSURLSession和SDWebImageDownloaderOptions初始化
+- (nonnull instancetype)initWithRequest:(nullable NSURLRequest *)request
+                              inSession:(nullable NSURLSession *)session
+                                options:(SDWebImageDownloaderOptions)options;
+
+//可以为每一个NSOperation自由的添加相应对象
+- (nullable id)addHandlersForProgress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
+                            completed:(nullable SDWebImageDownloaderCompletedBlock)completedBlock;
+
+///设置是否需要解压图片
+- (BOOL)shouldDecompressImages;
+- (void)setShouldDecompressImages:(BOOL)value;
+
+//设置是否需要设置凭证
+- (nullable NSURLCredential *)credential;
+- (void)setCredential:(nullable NSURLCredential *)value;
+
+@end
+```
+SDWebImageDownloaderOperation是NSOperation的子类,一般重写其Start方法,执行我们需要进行的业务.我们也可以自定义一个NSOperation的子类,但在这里需要注意的是,该类必须遵循SDWebImageDownloaderOperationInterface协议,用于配置一些信息和添加回调.
+
+```
+//开启下载任务
+- (void)start {
+    @synchronized (self) {
+      // 如果该任务已经被设置为取消了，那么就无需开启下载任务了,重置。
+        if (self.isCancelled) {
+            self.finished = YES;
+            [self reset];
+            return;
+        }
+
+#if SD_UIKIT
+        
+        Class UIApplicationClass = NSClassFromString(@"UIApplication");
+        BOOL hasApplication = UIApplicationClass && [UIApplicationClass respondsToSelector:@selector(sharedApplication)];
+        if (hasApplication && [self shouldContinueWhenAppEntersBackground]) {
+            __weak __typeof__ (self) wself = self;
+            UIApplication * app = [UIApplicationClass performSelector:@selector(sharedApplication)];
+            self.backgroundTaskId = [app beginBackgroundTaskWithExpirationHandler:^{
+                __strong __typeof (wself) sself = wself;
+
+                if (sself) {
+                    [sself cancel];
+                    
+                    [app endBackgroundTask:sself.backgroundTaskId];
+                    sself.backgroundTaskId = UIBackgroundTaskInvalid;
+                }
+            }];
+        }
+#endif
+        //task开启前的准备工作
+        NSURLSession *session = self.unownedSession;
+        if (!self.unownedSession) {
+            //新建网络会话对象
+            NSURLSessionConfiguration *sessionConfig = [NSURLSessionConfiguration defaultSessionConfiguration];
+            sessionConfig.timeoutIntervalForRequest = 15;
+            
+            //delegateQueue设置为nil.代理方法将会在一个串行操作队列中执行
+            self.ownedSession = [NSURLSession sessionWithConfiguration:sessionConfig
+                                                              delegate:self
+                                                         delegateQueue:nil];
+            session = self.ownedSession;
+        }
+       //开启task 并处理回调
+        self.dataTask = [session dataTaskWithRequest:self.request];
+        self.executing = YES;
+    }
+    
+    [self.dataTask resume];
+
+    if (self.dataTask) {
+        for (SDWebImageDownloaderProgressBlock progressBlock in [self callbacksForKey:kProgressCallbackKey]) {
+            //下载进度
+            progressBlock(0, NSURLResponseUnknownLength, self.request.URL);
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            //发送开始下载通知
+            [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStartNotification object:self];
+        });
+    } else {
+        //任务开启失败
+        [self callCompletionBlocksWithError:[NSError errorWithDomain:NSURLErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Connection can't be initialized"}]];
+    }
+
+#if SD_UIKIT
+    ////开启后，确保关闭后台任务
+    Class UIApplicationClass = NSClassFromString(@"UIApplication");
+    if(!UIApplicationClass || ![UIApplicationClass respondsToSelector:@selector(sharedApplication)]) {
+        return;
+    }
+    if (self.backgroundTaskId != UIBackgroundTaskInvalid) {
+        UIApplication * app = [UIApplication performSelector:@selector(sharedApplication)];
+        [app endBackgroundTask:self.backgroundTaskId];
+        self.backgroundTaskId = UIBackgroundTaskInvalid;
+    }
+#endif
+}
+
+```
+
+dispatch_barrier_async,这个方法是向数组中添加数据,barrier是栅栏的意思,当一个队列中通过dispatch_barrier_async|sync添加一个任务后,这个任务就起到了一个拦截的作用,之后的任务必须等barrier_async|sync之前添加的任务完成才能够执行,而dispatch_barrier_async与dispatch_barrier_sync的区别也很简单和直观,dispatch_barrier_async不用等这个任务返回,就能够执行队列后的任务,而dispatch_barrier_sync必须等自身返回,才能够执行队列后的任务.往数组中添加数据，对顺序没什么要求,采取dispatch_barrier_async就已经能保证数据添加的安全性了。
+
+```
+//添加响应者
+- (nullable id)addHandlersForProgress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
+                            completed:(nullable SDWebImageDownloaderCompletedBlock)completedBlock {
+    
+    //回调信息字典
+    SDCallbacksDictionary *callbacks = [NSMutableDictionary new];
+    if (progressBlock) callbacks[kProgressCallbackKey] = [progressBlock copy];
+    if (completedBlock) callbacks[kCompletedCallbackKey] = [completedBlock copy];
+
+     dispatch_barrier_async(self.barrierQueue, ^{
+        [self.callbackBlocks addObject:callbacks];
+    });
+    return callbacks;
+}
+```
+
+网络请求:NSURLSession,主要是一些代理方法,和根据图片数据的下载速度来进行图片的绘制,可用于图片的渐进式加载显示.
+
+```
+- (void)URLSession:(NSURLSession *)session
+          dataTask:(NSURLSessionDataTask *)dataTask
+didReceiveResponse:(NSURLResponse *)response
+ completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler {
+    
+    //没有收到响应码或者响应码小于400,但不等于304的时候,视为成功
+    if (![response respondsToSelector:@selector(statusCode)] || (((NSHTTPURLResponse *)response).statusCode < 400 && ((NSHTTPURLResponse *)response).statusCode != 304)) {
+        //成功
+        
+        NSInteger expected = response.expectedContentLength > 0 ? (NSInteger)response.expectedContentLength : 0;
+        self.expectedSize = expected;
+        for (SDWebImageDownloaderProgressBlock progressBlock in [self callbacksForKey:kProgressCallbackKey]) {
+            progressBlock(0, expected, self.request.URL);
+        }
+        
+        self.imageData = [[NSMutableData alloc] initWithCapacity:expected];
+        self.response = response;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadReceiveResponseNotification object:self];
+        });
+    }
+    else {
+        NSUInteger code = ((NSHTTPURLResponse *)response).statusCode;
+        
+        //stateCode=304,这个响应没有变化，我们可以取消这个操作和返回缓存中的图片数据.
+        if (code == 304) {
+            [self cancelInternal];
+        } else {
+            [self.dataTask cancel];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            //停止下载
+            [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
+        });
+        //下载失败
+        [self callCompletionBlocksWithError:[NSError errorWithDomain:NSURLErrorDomain code:((NSHTTPURLResponse *)response).statusCode userInfo:nil]];
+
+        [self done];
+    }
+    
+    if (completionHandler) {
+        completionHandler(NSURLSessionResponseAllow);
+    }
+}
+
+
+- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data {
+    
+    //拼接数据
+    [self.imageData appendData:data];
+
+    if ((self.options & SDWebImageDownloaderProgressiveDownload) && self.expectedSize > 0) {
+
+        // 获取已经下载的全部数据大小
+        const NSInteger totalSize = self.imageData.length;
+
+        // 创建图片源对象
+        CGImageSourceRef imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)self.imageData, NULL);
+        
+        //没有进行过赋值操作
+        if (width + height == 0) {
+            //获取图片信息
+            CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, NULL);
+            if (properties) {
+                NSInteger orientationValue = -1;
+                //像素高
+                CFTypeRef val = CFDictionaryGetValue(properties, kCGImagePropertyPixelHeight);
+                if (val) CFNumberGetValue(val, kCFNumberLongType, &height);
+                //像素宽
+                val = CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth);
+                if (val) CFNumberGetValue(val, kCFNumberLongType, &width);
+                //方向
+                val = CFDictionaryGetValue(properties, kCGImagePropertyOrientation);
+                if (val) CFNumberGetValue(val, kCFNumberNSIntegerType, &orientationValue);
+                CFRelease(properties);
+                
+#if SD_UIKIT || SD_WATCH
+                //Core graphics绘制时,会丢失方向信息.通过initWithCGImage获取的对象的方向是错误的,所以在这里保存方向信息,而initWithData不会
+                //方向转换
+                orientation = [[self class] orientationFromPropertyValue:(orientationValue == -1 ? 1 : orientationValue)];
+#endif
+            }
+        }
+        
+        //绘制图片
+        if (width + height > 0 && totalSize < self.expectedSize) {
+            // Create the image
+            CGImageRef partialImageRef = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+
+#if SD_UIKIT || SD_WATCH
+            // Workaround for iOS anamorphic image
+            if (partialImageRef) {
+                const size_t partialHeight = CGImageGetHeight(partialImageRef);
+                CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+                CGContextRef bmContext = CGBitmapContextCreate(NULL, width, height, 8, width * 4, colorSpace, kCGBitmapByteOrderDefault | kCGImageAlphaPremultipliedFirst);
+                CGColorSpaceRelease(colorSpace);
+                if (bmContext) {
+                    CGContextDrawImage(bmContext, (CGRect){.origin.x = 0.0f, .origin.y = 0.0f, .size.width = width, .size.height = partialHeight}, partialImageRef);
+                    CGImageRelease(partialImageRef);
+                    partialImageRef = CGBitmapContextCreateImage(bmContext);
+                    CGContextRelease(bmContext);
+                }
+                else {
+                    CGImageRelease(partialImageRef);
+                    partialImageRef = nil;
+                }
+            }
+#endif
+
+            if (partialImageRef) {
+#if SD_UIKIT || SD_WATCH
+                UIImage *image = [UIImage imageWithCGImage:partialImageRef scale:1 orientation:orientation];
+#elif SD_MAC
+                UIImage *image = [[UIImage alloc] initWithCGImage:partialImageRef size:NSZeroSize];
+#endif
+                NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:self.request.URL];
+                UIImage *scaledImage = [self scaledImageForKey:key image:image];
+                if (self.shouldDecompressImages) {
+                    image = [UIImage decodedImageWithImage:scaledImage];
+                }
+                else {
+                    image = scaledImage;
+                }
+                CGImageRelease(partialImageRef);
+                
+                [self callCompletionBlocksWithImage:image imageData:nil error:nil finished:NO];
+            }
+        }
+
+        CFRelease(imageSource);
+    }
+
+    for (SDWebImageDownloaderProgressBlock progressBlock in [self callbacksForKey:kProgressCallbackKey]) {
+        progressBlock(self.imageData.length, self.expectedSize, self.request.URL);
+    }
+}
+
+```
+
+###下载器SDWebImageDownloader
+
+SDWebImageDownloader内部主要管理者一个操作队列,用于执行图片下载的任务.比如设置队列的执行顺序FIFO(先进先出),LIFO(后进先出),任务的最大并发量
+还可以配置网络请求参数,设置请求头,证书,网络超时时间等
+
+```
+//下载操作 主要方法
+//返回一个SDWebImageDownloadToken对象,可以用来取消下载任务
+- (nullable SDWebImageDownloadToken *)downloadImageWithURL:(nullable NSURL *)url
+                                                   options:(SDWebImageDownloaderOptions)options
+                                                  progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
+                                                 completed:(nullable SDWebImageDownloaderCompletedBlock)completedBlock {
+    __weak SDWebImageDownloader *wself = self;
+
+    return [self addProgressCallback:progressBlock completedBlock:completedBlock forURL:url createCallback:^SDWebImageDownloaderOperation *{
+        
+        //创建操作对象完成之后 进行网络参数配置和处理操作列表的执行顺序(添加依赖)
+        
+        
+        __strong __typeof (wself) sself = wself;
+        //超时时间
+        NSTimeInterval timeoutInterval = sself.downloadTimeout;
+        if (timeoutInterval == 0.0) {
+            timeoutInterval = 15.0;
+        }
+        //为了防止潜在的重复进行缓存(NSURLCache + SDImageCache),禁用了image requests
+        //SDWebImageDownloaderUseNSURLCache -> NSURLRequestUseProtocolCachePolicy
+        
+        // cachePolicy:创建的request所使用的缓存策略，默认使用`NSURLRequestUseProtocolCachePolicy`，该策略表示如果缓存不存在，直接从服务端获取。如果缓存存在，会根据response中的Cache-Control字段判断,下一步操作，如: Cache-Control字段为must-revalidata, 则 询问服务端该数据是否有更新，无更新话直接返回给用户缓存数据，若已更新，则请求服务端.
+        NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url cachePolicy:(options & SDWebImageDownloaderUseNSURLCache ? NSURLRequestUseProtocolCachePolicy : NSURLRequestReloadIgnoringLocalCacheData) timeoutInterval:timeoutInterval];
+        
+        //HTTPShouldHandleCookies表示是否应该给request设置cookie并随request一起发送出去,如果设置HTTPShouldHandleCookies为YES，就处理存储在NSHTTPCookieStore中的cookies
+        request.HTTPShouldHandleCookies = (options & SDWebImageDownloaderHandleCookies);
+        
+        // HTTPShouldUsePipelining表示receiver(client客户端)的下一个信息是否必须等到上一个请求回复才能发送。如果为YES表示可以，NO表示必须等receiver收到先前的回复才能发送下个信息。
+        request.HTTPShouldUsePipelining = YES;
+        
+        //请求头
+        if (sself.headersFilter) {
+            //将block做为参数,对请求头信息进行过滤或操作
+            request.allHTTPHeaderFields = sself.headersFilter(url, [sself.HTTPHeaders copy]);
+        }
+        else {
+            request.allHTTPHeaderFields = sself.HTTPHeaders;
+        }
+        
+        //根据操作配置,请求参数,网络会话创建下载操作对象
+        SDWebImageDownloaderOperation *operation = [[sself.operationClass alloc] initWithRequest:request inSession:sself.session options:options];
+        //是否允许压缩
+        operation.shouldDecompressImages = sself.shouldDecompressImages;
+        
+        //认证
+        if (sself.urlCredential) {
+            operation.credential = sself.urlCredential;
+        } else if (sself.username && sself.password) {
+            //新建认证对象
+            operation.credential = [NSURLCredential credentialWithUser:sself.username password:sself.password persistence:NSURLCredentialPersistenceForSession];
+        }
+        
+        //操作对象优先级
+        if (options & SDWebImageDownloaderHighPriority) {
+            operation.queuePriority = NSOperationQueuePriorityHigh;
+        } else if (options & SDWebImageDownloaderLowPriority) {
+            operation.queuePriority = NSOperationQueuePriorityLow;
+        }
+        //添加到操作队列
+        [sself.downloadQueue addOperation:operation];
+        if (sself.executionOrder == SDWebImageDownloaderLIFOExecutionOrder) {
+            
+            //如果是后进先出,为上一个添加的操作对象添加依赖为当前的操作对象,然后重新赋值
+            [sself.lastAddedOperation addDependency:operation];
+            sself.lastAddedOperation = operation;
+        }
+
+        return operation;
+    }];
+}
+
+```
+
+##SDWebImageManager核心类
+SDWebImageManager是整个框架的核心管理者,内部管理着缓存处理和图片下载任务.
+
+主要接口
+
+```
+//全局单例对象
++ (nonnull instancetype)sharedManager;
+
+//构造函数
+- (nonnull instancetype)initWithCache:(nonnull SDImageCache *)cache downloader:(nonnull SDWebImageDownloader *)downloader NS_DESIGNATED_INITIALIZER;
+
+
+//下载图片,返回遵循SDWebImageOperation协议的NSOperation对象,默认为SDWebImageDownloaderOperation
+- (nullable id <SDWebImageOperation>)loadImageWithURL:(nullable NSURL *)url
+                                              options:(SDWebImageOptions)options
+                                             progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
+                                            completed:(nullable SDInternalCompletionBlock)completedBlock;
+
+
+//缓存
+- (void)saveImageToCache:(nullable UIImage *)image forURL:(nullable NSURL *)url;
+
+
+//取消所有当前的操作
+- (void)cancelAll;
+
+
+//操作是否在运行
+- (BOOL)isRunning;
+
+
+//异步检查Memory中是否有缓存,block在主线程中执行
+- (void)cachedImageExistsForURL:(nullable NSURL *)url
+                     completion:(nullable SDWebImageCheckCacheCompletionBlock)completionBlock;
+
+
+//异步检查磁盘中是否有缓存,block在主线程中执行
+- (void)diskImageExistsForURL:(nullable NSURL *)url
+                   completion:(nullable SDWebImageCheckCacheCompletionBlock)completionBlock;
+
+
+```
+
+核心方法
+
+```
+
+- (id <SDWebImageOperation>)loadImageWithURL:(nullable NSURL *)url
+                                     options:(SDWebImageOptions)options
+                                    progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
+                                   completed:(nullable SDInternalCompletionBlock)completedBlock {
+    
+    //没有回调block是无意义的的操作 抛异常
+    NSAssert(completedBlock != nil, @"If you mean to prefetch the image, use -[SDWebImagePrefetcher prefetchURLs] instead");
+    
+    
+    //传NSString(不会报错) -> NSURL
+    if ([url isKindOfClass:NSString.class]) {
+        url = [NSURL URLWithString:(NSString *)url];
+    }
+
+    // 用NSNull代替一个非NSURL对象
+    if (![url isKindOfClass:NSURL.class]) {
+        url = nil;
+    }
+
+    __block SDWebImageCombinedOperation *operation = [SDWebImageCombinedOperation new];
+    __weak SDWebImageCombinedOperation *weakOperation = operation;
+
+    BOOL isFailedUrl = NO;
+    if (url) {
+        //检查是否在失效URL列表中
+        @synchronized (self.failedURLs) {
+            isFailedUrl = [self.failedURLs containsObject:url];
+        }
+    }
+
+    if (url.absoluteString.length == 0 || (!(options & SDWebImageRetryFailed) && isFailedUrl)) {
+        //文件不存在
+        [self callCompletionBlockForOperation:operation completion:completedBlock error:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist userInfo:nil] url:url];
+        return operation;
+    }
+
+    @synchronized (self.runningOperations) {
+        //添加到操作列表中
+        [self.runningOperations addObject:operation];
+    }
+    
+    NSString *key = [self cacheKeyForURL:url];
+
+    operation.cacheOperation = [self.imageCache queryCacheOperationForKey:key done:^(UIImage *cachedImage, NSData *cachedData, SDImageCacheType cacheType) {
+        if (operation.isCancelled) {
+            [self safelyRemoveOperationFromRunning:operation];
+            return;
+        }
+
+        if ((!cachedImage || options & SDWebImageRefreshCached) && (![self.delegate respondsToSelector:@selector(imageManager:shouldDownloadImageForURL:)] || [self.delegate imageManager:self shouldDownloadImageForURL:url])) {
+            if (cachedImage && options & SDWebImageRefreshCached) {
+                // If image was found in the cache but SDWebImageRefreshCached is provided, notify about the cached image
+                // AND try to re-download it in order to let a chance to NSURLCache to refresh it from server.
+                [self callCompletionBlockForOperation:weakOperation completion:completedBlock image:cachedImage data:cachedData error:nil cacheType:cacheType finished:YES url:url];
+            }
+
+            // download if no image or requested to refresh anyway, and download allowed by delegate
+            SDWebImageDownloaderOptions downloaderOptions = 0;
+            if (options & SDWebImageLowPriority) downloaderOptions |= SDWebImageDownloaderLowPriority;
+            if (options & SDWebImageProgressiveDownload) downloaderOptions |= SDWebImageDownloaderProgressiveDownload;
+            if (options & SDWebImageRefreshCached) downloaderOptions |= SDWebImageDownloaderUseNSURLCache;
+            if (options & SDWebImageContinueInBackground) downloaderOptions |= SDWebImageDownloaderContinueInBackground;
+            if (options & SDWebImageHandleCookies) downloaderOptions |= SDWebImageDownloaderHandleCookies;
+            if (options & SDWebImageAllowInvalidSSLCertificates) downloaderOptions |= SDWebImageDownloaderAllowInvalidSSLCertificates;
+            if (options & SDWebImageHighPriority) downloaderOptions |= SDWebImageDownloaderHighPriority;
+            if (options & SDWebImageScaleDownLargeImages) downloaderOptions |= SDWebImageDownloaderScaleDownLargeImages;
+            
+            if (cachedImage && options & SDWebImageRefreshCached) {
+                // force progressive off if image already cached but forced refreshing
+                downloaderOptions &= ~SDWebImageDownloaderProgressiveDownload;
+                // ignore image read from NSURLCache if image if cached but force refreshing
+                downloaderOptions |= SDWebImageDownloaderIgnoreCachedResponse;
+            }
+            
+            
+            //下载
+            SDWebImageDownloadToken *subOperationToken = [self.imageDownloader downloadImageWithURL:url options:downloaderOptions progress:progressBlock completed:^(UIImage *downloadedImage, NSData *downloadedData, NSError *error, BOOL finished) {
+                __strong __typeof(weakOperation) strongOperation = weakOperation;
+                if (!strongOperation || strongOperation.isCancelled) {
+                    // Do nothing if the operation was cancelled
+                    // See #699 for more details
+                    // if we would call the completedBlock, there could be a race condition between this block and another completedBlock for the same object, so if this one is called second, we will overwrite the new data
+                } else if (error) {
+                    //下载失败,回调晒白信息,添加到失效列表中
+                    [self callCompletionBlockForOperation:strongOperation completion:completedBlock error:error url:url];
+
+                    if (   error.code != NSURLErrorNotConnectedToInternet
+                        && error.code != NSURLErrorCancelled
+                        && error.code != NSURLErrorTimedOut
+                        && error.code != NSURLErrorInternationalRoamingOff
+                        && error.code != NSURLErrorDataNotAllowed
+                        && error.code != NSURLErrorCannotFindHost
+                        && error.code != NSURLErrorCannotConnectToHost) {
+                        @synchronized (self.failedURLs) {
+                            [self.failedURLs addObject:url];
+                        }
+                    }
+                }
+                else {
+                    if ((options & SDWebImageRetryFailed)) {
+                        //禁用失效
+                        @synchronized (self.failedURLs) {
+                            [self.failedURLs removeObject:url];
+                        }
+                    }
+                    
+                    BOOL cacheOnDisk = !(options & SDWebImageCacheMemoryOnly);
+
+                    if (options & SDWebImageRefreshCached && cachedImage && !downloadedImage) {
+                        // Image refresh hit the NSURLCache cache, do not call the completion block
+                    } else if (downloadedImage && (!downloadedImage.images || (options & SDWebImageTransformAnimatedImage)) && [self.delegate respondsToSelector:@selector(imageManager:transformDownloadedImage:withURL:)]) {
+                        
+                        //下载成功 && (不是gif或者SDWebImageTransformAnimatedImage) &&实现代理
+                        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                            UIImage *transformedImage = [self.delegate imageManager:self transformDownloadedImage:downloadedImage withURL:url];
+
+                            if (transformedImage && finished) {
+                                BOOL imageWasTransformed = ![transformedImage isEqual:downloadedImage];
+                                // pass nil if the image was transformed, so we can recalculate the data from the image
+                                
+                                //储存缓存
+                                [self.imageCache storeImage:transformedImage imageData:(imageWasTransformed ? nil : downloadedData) forKey:key toDisk:cacheOnDisk completion:nil];
+                            }
+                            //回调
+                            [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:transformedImage data:downloadedData error:nil cacheType:SDImageCacheTypeNone finished:finished url:url];
+                        });
+                    } else {
+                        if (downloadedImage && finished) {
+                            //缓存到内存中(内部同时缓存在磁盘中)
+                            [self.imageCache storeImage:downloadedImage imageData:downloadedData forKey:key toDisk:cacheOnDisk completion:nil];
+                        }
+                        //回调
+                        [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:downloadedImage data:downloadedData error:nil cacheType:SDImageCacheTypeNone finished:finished url:url];
+                    }
+                }
+
+                if (finished) {
+                    //安全的移除操作对象
+                    [self safelyRemoveOperationFromRunning:strongOperation];
+                }
+            }];
+            operation.cancelBlock = ^{
+                [self.imageDownloader cancel:subOperationToken];
+                __strong __typeof(weakOperation) strongOperation = weakOperation;
+                [self safelyRemoveOperationFromRunning:strongOperation];
+            };
+        } else if (cachedImage) {
+            __strong __typeof(weakOperation) strongOperation = weakOperation;
+            [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:cachedImage data:cachedData error:nil cacheType:cacheType finished:YES url:url];
+            [self safelyRemoveOperationFromRunning:operation];
+        } else {
+            // Image not in cache and download disallowed by delegate
+            __strong __typeof(weakOperation) strongOperation = weakOperation;
+            [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:nil data:nil error:nil cacheType:SDImageCacheTypeNone finished:YES url:url];
+            [self safelyRemoveOperationFromRunning:operation];
+        }
+    }];
+
+    return operation;
+}
+
+```
+
+
