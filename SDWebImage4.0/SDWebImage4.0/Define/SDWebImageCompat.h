@@ -14,6 +14,7 @@
 ////定义平台相关的宏,兼容处理,内联函数,常量
 
 #ifdef __OBJC_GC__
+//不支持自动垃圾回收
     #error SDWebImage does not support Objective-C Garbage Collection
 #endif
 
