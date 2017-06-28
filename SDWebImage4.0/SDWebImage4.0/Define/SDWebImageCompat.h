@@ -113,6 +113,7 @@ enum EnumName:int{
     #define SDDispatchQueueSetterSementics assign
 #endif
 
+//内联函数处理图片尺寸
 extern UIImage *SDScaledImageForKey(NSString *key, UIImage *image);
 
 typedef void(^SDWebImageNoParamsBlock)();
