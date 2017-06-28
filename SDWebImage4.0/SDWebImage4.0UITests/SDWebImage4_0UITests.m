@@ -2,7 +2,7 @@
 //  SDWebImage4_0UITests.m
 //  SDWebImage4.0UITests
 //
-//  Created by Rhino on 2017/6/26.
+//  Created by Rhino on 2017/6/28.
 //  Copyright © 2017年 Rhino. All rights reserved.
 //
 
