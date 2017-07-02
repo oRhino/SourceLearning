@@ -1,0 +1,145 @@
+#AFNetworking源码解析之AFNetworkReachabilityManager
+
+![](http://upload-images.jianshu.io/upload_images/1217241-82deec99fe5e6fdb.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+##简介
+AFNetworkReachabilityManager通过域名或者一个地址来监控设备的网络状态,因为业务功能相对单一,解析起来也相对容易些,主要涉及SCNetworkReachabilityRef的内容.
+
+##应用场景
+我们可以用这个类来实时监听设备的网络情况,较差(NotReachable)的时候,提示用户做相应的检查,以此提高用户体验.或者视频类/需要大量消耗流量的App中,监控网络状态,如果当前是WWAN(2G/3G/4G)时,通过开关来用户选择是否通过WWAN网络来观看视频或者下载文件,如果用户不允许2G/3G/4G网络观看视频或者下载文件，而此时手机网络又是2G/3G/4G网络,提示用户当前网络不支持播放视频和下载。以避免不必要消耗过多的流量,带来的经济损失和对App的满意度.
+
+##使用方法
+1. 通过Block
+
+```
+- (IBAction)start1:(id)sender {
+    self.manager = [AFNetworkReachabilityManager managerForDomain:@"https://www.baidu.com"];
+    [self.manager setReachabilityStatusChangeBlock:^(AFNetworkReachabilityStatus status) {
+        switch (status) {
+                //未知
+            case AFNetworkReachabilityStatusUnknown:
+                NSLog(@"你是外星人👽吗?");
+                break;
+                //网络不可达
+            case AFNetworkReachabilityStatusNotReachable:
+                NSLog(@"包租婆,断网啦~");
+                break;
+                //手机网络
+            case AFNetworkReachabilityStatusReachableViaWWAN:
+                NSLog(@"土豪,我的冰淇淋套餐😆!");
+                break;
+                //WIFI
+            case AFNetworkReachabilityStatusReachableViaWiFi:
+                NSLog(@"帅哥,你家WIFI密码是什么!");
+                break;
+        }
+    }];
+    [self.manager startMonitoring];
+}
+
+```
+2.通过通知,注册一个name为AFNetworkingReachabilityDidChangeNotification的通知,通过key:AFNetworkingReachabilityNotificationStatusItem取出对应的网络状态
+
+```
+    [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(networkChanged:) name:AFNetworkingReachabilityDidChangeNotification object:nil];
+    - (void)networkChanged:(NSNotification *)notification{
+    NSString *status = [notification.userInfo objectForKey:AFNetworkingReachabilityNotificationStatusItem];
+    NSInteger  statusInt = [status integerValue];
+    NSLog(@"%ld",statusInt);
+    }
+```
+
+##实现原理
+网络监控的实现是依赖SystemConfiguration框架中的SCNetworkReachabilityRef
+导入头文件:
+`#import <SystemConfiguration/SystemConfiguration.h>`
+SCNetworkReachabilityRef是一个结构体
+
+```
+     typedef struct {
+     // 创建一个SCNetworkReachabilityContext结构体时，需要调用SCDynamicStore的创建函数，而此创建函数会根据version来创建出不同的结构体，SCNetworkReachabilityContext对应的version是0
+     CFIndex        version;
+     // 下面两个block（release和retain）的参数就是info，此处表示的是网络状态处理的回调函数
+     void *        __nullable info;
+     // 该retain block用于对info进行retain，下面那个AFNetworkReachabilityRetainCallback核心就是调用了Block_copy（用于retain一个block函数，即在堆空间新建或直接引用一个block拷贝）
+     const void    * __nonnull (* __nullable retain)(const void *info);
+     // 该release block用于对info进行release，下面那个AFNetworkReachabilityReleaseCallback核心就是调用了Block_release（用于release一个block函数，即将block从堆空间移除或移除相应引用）
+     void        (* __nullable release)(const void *info);
+     // 提供info的description，此处调用为NULL
+     CFStringRef    __nonnull (* __nullable copyDescription)(const void *info);
+     } SCNetworkReachabilityContext;
+```
+我们通常可以通过以下两种方法创建这个对象
+
+```
+SCNetworkReachabilityRef __nullable
+SCNetworkReachabilityCreateWithAddress		(
+						CFAllocatorRef			__nullable	allocator,
+						const struct sockaddr				*address
+						)
+```
+
+```
+SCNetworkReachabilityRef __nullable
+SCNetworkReachabilityCreateWithName		(
+						CFAllocatorRef			__nullable	allocator,
+						const char					*nodename
+						)
+```
+核心代码:
+
+```
+//Core Code
+- (void)startMonitoring {
+    // 先停止之前的网络监听
+    [self stopMonitoring];
+    
+    // networkReachability表示的是需要检测的网络地址的句柄
+    if (!self.networkReachability) {
+        return;
+    }
+
+    __weak __typeof(self)weakSelf = self;
+    // 根据网络状态status来设置网络状态监听的回调函数callback
+    AFNetworkReachabilityStatusBlock callback = ^(AFNetworkReachabilityStatus status) {
+        __strong __typeof(weakSelf)strongSelf = weakSelf;
+
+        strongSelf.networkReachabilityStatus = status;
+        if (strongSelf.networkReachabilityStatusBlock) {
+            strongSelf.networkReachabilityStatusBlock(status);
+        }
+
+    };
+       
+    //创建上下文
+    SCNetworkReachabilityContext context = {0, (__bridge void *)callback, AFNetworkReachabilityRetainCallback, AFNetworkReachabilityReleaseCallback, NULL};
+    
+    /**
+     // 给客户端指定对应target（该参数和需要检测网络状况的地址有一定关联，此处使用的是self.networkReachability），然后当这个target的网络状态变化时，告之SCNetworkReachabilityCallBack对象callout处理（此处使用的是AFNetworkReachabilityCallback），另外callout中使用到的参数包括target和context提供的info。
+     Boolean
+     SCNetworkReachabilitySetCallback    (
+     SCNetworkReachabilityRef                                        target,
+     SCNetworkReachabilityCallBack    __nullable    callout,
+     SCNetworkReachabilityContext    * __nullable    context
+     )                __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+     */
+    
+    //设置回调
+    SCNetworkReachabilitySetCallback(self.networkReachability, AFNetworkReachabilityCallback, &context);
+    
+    /**
+     此处表示在main RunLoop中以kCFRunLoopCommonModes形式处理self.networkingReachability
+     */
+    //加入RunLoop Main
+    SCNetworkReachabilityScheduleWithRunLoop(self.networkReachability, CFRunLoopGetMain(), kCFRunLoopCommonModes);
+    
+    // 在后台检测self.networkingReachability的网络状态，并使用SCNetworkReachabilityGetFlags函数返回产生的flag，此处flag表示的就是网络的状态
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0),^{
+        SCNetworkReachabilityFlags flags;
+        if (SCNetworkReachabilityGetFlags(self.networkReachability, &flags)) {
+             // AFPostReachabilityStatusChange函数就是先将flags转化为对应的AFNetworkReachabilityStatus变量，然后通过Block,通知回调.
+            AFPostReachabilityStatusChange(flags, callback);
+        }
+    });
+}
+```

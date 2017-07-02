@@ -10,6 +10,7 @@
 		7604C4EA1F0494D3000FBA7F /* KVOViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7604C4E91F0494D3000FBA7F /* KVOViewController.m */; };
 		7604C4ED1F04BDEB000FBA7F /* SessionViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7604C4EC1F04BDEB000FBA7F /* SessionViewController.m */; };
 		7634A2FB1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m in Sources */ = {isa = PBXBuildFile; fileRef = 7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */; };
+		769169731F08C9D000402AFC /* ReachabilityViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 769169721F08C9D000402AFC /* ReachabilityViewController.m */; };
 		76BABDD41F03B67700D2235B /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD31F03B67700D2235B /* main.m */; };
 		76BABDD71F03B67700D2235B /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD61F03B67700D2235B /* AppDelegate.m */; };
 		76BABDDA1F03B67700D2235B /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD91F03B67700D2235B /* ViewController.m */; };
@@ -50,6 +51,8 @@
 		7604C4EC1F04BDEB000FBA7F /* SessionViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SessionViewController.m; sourceTree = "<group>"; };
 		7634A2F91F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UIViewController+ViewDidLoad.h"; sourceTree = "<group>"; };
 		7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+ViewDidLoad.m"; sourceTree = "<group>"; };
+		769169711F08C9D000402AFC /* ReachabilityViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ReachabilityViewController.h; sourceTree = "<group>"; };
+		769169721F08C9D000402AFC /* ReachabilityViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ReachabilityViewController.m; sourceTree = "<group>"; };
 		76BABDCF1F03B67700D2235B /* AFNetworking3.0+.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AFNetworking3.0+.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		76BABDD31F03B67700D2235B /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		76BABDD51F03B67700D2235B /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -140,6 +143,8 @@
 				7604C4E91F0494D3000FBA7F /* KVOViewController.m */,
 				7634A2F91F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.h */,
 				7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */,
+				769169711F08C9D000402AFC /* ReachabilityViewController.h */,
+				769169721F08C9D000402AFC /* ReachabilityViewController.m */,
 				76BABDDB1F03B67700D2235B /* Main.storyboard */,
 				76BABDDE1F03B67700D2235B /* Assets.xcassets */,
 				76BABDE01F03B67700D2235B /* LaunchScreen.storyboard */,
@@ -338,6 +343,7 @@
 				76BABDD41F03B67700D2235B /* main.m in Sources */,
 				76BABE191F03B71800D2235B /* AFSecurityPolicy.m in Sources */,
 				76BABE1A1F03B71800D2235B /* AFURLRequestSerialization.m in Sources */,
+				769169731F08C9D000402AFC /* ReachabilityViewController.m in Sources */,
 				76BABE1B1F03B71800D2235B /* AFURLResponseSerialization.m in Sources */,
 				76BABE171F03B71800D2235B /* AFHTTPSessionManager.m in Sources */,
 				7634A2FB1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m in Sources */,
