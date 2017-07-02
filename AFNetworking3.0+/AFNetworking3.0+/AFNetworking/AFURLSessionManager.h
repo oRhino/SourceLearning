@@ -29,20 +29,24 @@
 #import "AFNetworkReachabilityManager.h"
 #endif
 
-/**
- `AFURLSessionManager` creates and manages an `NSURLSession` object based on a specified `NSURLSessionConfiguration` object, which conforms to `<NSURLSessionTaskDelegate>`, `<NSURLSessionDataDelegate>`, `<NSURLSessionDownloadDelegate>`, and `<NSURLSessionDelegate>`.
+/*
+ `AFURLSessionManager` 创建和管理一个 `NSURLSession` 对象,这个对象是基于特别的 `NSURLSessionConfiguration` 对象创建的, 遵循了以下协议  `<NSURLSessionTaskDelegate>`, `<NSURLSessionDataDelegate>`, `<NSURLSessionDownloadDelegate>`, 和 `<NSURLSessionDelegate>`.
 
  ## Subclassing Notes
-
- This is the base class for `AFHTTPSessionManager`, which adds functionality specific to making HTTP requests. If you are looking to extend `AFURLSessionManager` specifically for HTTP, consider subclassing `AFHTTPSessionManager` instead.
-
- ## NSURLSession & NSURLSessionTask Delegate Methods
+ 
+ AFHTTPSessionManager是它的子类,AFHTTPSessionManager添加了发出HTTP请求的功能,如果你想使用AFURLSessionManager来发起HTTP请求,不妨考虑使用AFHTTPSessionManager.
+ 
+ ## NSURLSession & NSURLSessionTask 代理方法
 
  `AFURLSessionManager` implements the following delegate methods:
 
  ### `NSURLSessionDelegate`
-
+ 
+ 当前这个session已经失效时，该代理方法被调用。
+ 如果你使用finishTasksAndInvalidate函数使该session失效，那么session首先会先完成最后一个task，然后再调用URLSession:didBecomeInvalidWithError:代理方法，如果你调用invalidateAndCancel方法来使session失效，那么该session会立即调用上面的代理方法
  - `URLSession:didBecomeInvalidWithError:`
+ 
+ 
  - `URLSession:didReceiveChallenge:completionHandler:`
  - `URLSessionDidFinishEventsForBackgroundURLSession:`
 
@@ -127,31 +131,25 @@ NS_ASSUME_NONNULL_BEGIN
 #endif
 
 ///----------------------------
-/// @name Getting Session Tasks
+/// @name 会话任务列表
 ///----------------------------
 
-/**
- The data, upload, and download tasks currently run by the managed session.
- */
+
+//总的任务集合(data,upload,download)
 @property (readonly, nonatomic, strong) NSArray <NSURLSessionTask *> *tasks;
 
-/**
- The data tasks currently run by the managed session.
- */
+
+// data tasks 数据任务数组
 @property (readonly, nonatomic, strong) NSArray <NSURLSessionDataTask *> *dataTasks;
 
-/**
- The upload tasks currently run by the managed session.
- */
+//upload tasks 上传任务数组
 @property (readonly, nonatomic, strong) NSArray <NSURLSessionUploadTask *> *uploadTasks;
 
-/**
- The download tasks currently run by the managed session.
- */
+//download tasks 下载任务数组
 @property (readonly, nonatomic, strong) NSArray <NSURLSessionDownloadTask *> *downloadTasks;
 
 ///-------------------------------
-/// @name Managing Callback Queues
+/// @name 回调队列
 ///-------------------------------
 
 /**
@@ -175,6 +173,7 @@ NS_ASSUME_NONNULL_BEGIN
 
  @see https://github.com/AFNetworking/AFNetworking/issues/1675
  */
+//在iOS7中存在一个bug，在后台创建上传任务时，有时候会返回nil，所以为了解决这个问题，AFNetworking遵照了苹果的建议，在创建失败的时候，会重新尝试创建，次数默认为3次，所以你的应用如果有场景会有在后台上传的情况的话，记得将该值设为YES，避免出现上传失败的问题.默认为NO
 @property (nonatomic, assign) BOOL attemptsToRecreateUploadTasksForBackgroundSessions;
 
 ///---------------------

@@ -29,6 +29,8 @@ NS_ASSUME_NONNULL_BEGIN
 
  For example, a JSON response serializer may check for an acceptable status code (`2XX` range) and content type (`application/json`), decoding a valid JSON response into an object.
  */
+
+//
 @protocol AFURLResponseSerialization <NSObject, NSSecureCoding, NSCopying>
 
 /**
@@ -40,6 +42,8 @@ NS_ASSUME_NONNULL_BEGIN
 
  @return The object decoded from the specified response data.
  */
+
+//对返回的数据进行解析，解析response为对应的数据类型（JSON、XML、plist、Image）,AFHTTPResponseSerializer的子类会重写这个方法，根据不同的需要解析成不同的结果，如AFJSONResponseSerializer会将数据解析成为JSON数据，
 - (nullable id)responseObjectForResponse:(nullable NSURLResponse *)response
                            data:(nullable NSData *)data
                           error:(NSError * _Nullable __autoreleasing *)error NS_SWIFT_NOTHROW;
@@ -53,6 +57,8 @@ NS_ASSUME_NONNULL_BEGIN
 
  Any request or response serializer dealing with HTTP is encouraged to subclass `AFHTTPResponseSerializer` in order to ensure consistent default behavior.
  */
+
+
 @interface AFHTTPResponseSerializer : NSObject <AFURLResponseSerialization>
 
 - (instancetype)init;
@@ -73,11 +79,13 @@ NS_ASSUME_NONNULL_BEGIN
 
  See http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
  */
+//可接受的状态码集合, (默认)200-299,不在这个范围内将会在验证期间得到一个error
 @property (nonatomic, copy, nullable) NSIndexSet *acceptableStatusCodes;
 
 /**
  The acceptable MIME types for responses. When non-`nil`, responses with a `Content-Type` with MIME types that do not intersect with the set will result in an error during validation.
  */
+//可接受的 MIME类型
 @property (nonatomic, copy, nullable) NSSet <NSString *> *acceptableContentTypes;
 
 /**
@@ -91,6 +99,7 @@ NS_ASSUME_NONNULL_BEGIN
 
  @return `YES` if the response is valid, otherwise `NO`.
  */
+//通过验证MIMEType（数据类型），StatusCode（状态码：2xx为成功状态）是否满足条件来判断网络返回的数据是否有效
 - (BOOL)validateResponse:(nullable NSHTTPURLResponse *)response
                     data:(nullable NSData *)data
                    error:(NSError * _Nullable __autoreleasing *)error;
@@ -251,6 +260,8 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  `AFCompoundSerializer` is a subclass of `AFHTTPResponseSerializer` that delegates the response serialization to the first `AFHTTPResponseSerializer` object that returns an object for `responseObjectForResponse:data:error:`, falling back on the default behavior of `AFHTTPResponseSerializer`. This is useful for supporting multiple potential types and structures of server responses with a single serializer.
  */
+
+//AFCompoundResponseSerializer是表示一组Serializer的集合
 @interface AFCompoundResponseSerializer : AFHTTPResponseSerializer
 
 /**

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7604C4EA1F0494D3000FBA7F /* KVOViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7604C4E91F0494D3000FBA7F /* KVOViewController.m */; };
+		7604C4ED1F04BDEB000FBA7F /* SessionViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7604C4EC1F04BDEB000FBA7F /* SessionViewController.m */; };
+		7634A2FB1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m in Sources */ = {isa = PBXBuildFile; fileRef = 7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */; };
 		76BABDD41F03B67700D2235B /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD31F03B67700D2235B /* main.m */; };
 		76BABDD71F03B67700D2235B /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD61F03B67700D2235B /* AppDelegate.m */; };
 		76BABDDA1F03B67700D2235B /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD91F03B67700D2235B /* ViewController.m */; };
@@ -41,6 +44,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		7604C4E81F0494D3000FBA7F /* KVOViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KVOViewController.h; sourceTree = "<group>"; };
+		7604C4E91F0494D3000FBA7F /* KVOViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KVOViewController.m; sourceTree = "<group>"; };
+		7604C4EB1F04BDEB000FBA7F /* SessionViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SessionViewController.h; sourceTree = "<group>"; };
+		7604C4EC1F04BDEB000FBA7F /* SessionViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SessionViewController.m; sourceTree = "<group>"; };
+		7634A2F91F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UIViewController+ViewDidLoad.h"; sourceTree = "<group>"; };
+		7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+ViewDidLoad.m"; sourceTree = "<group>"; };
 		76BABDCF1F03B67700D2235B /* AFNetworking3.0+.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AFNetworking3.0+.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		76BABDD31F03B67700D2235B /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		76BABDD51F03B67700D2235B /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -125,6 +134,12 @@
 				76BABDD61F03B67700D2235B /* AppDelegate.m */,
 				76BABDD81F03B67700D2235B /* ViewController.h */,
 				76BABDD91F03B67700D2235B /* ViewController.m */,
+				7604C4EB1F04BDEB000FBA7F /* SessionViewController.h */,
+				7604C4EC1F04BDEB000FBA7F /* SessionViewController.m */,
+				7604C4E81F0494D3000FBA7F /* KVOViewController.h */,
+				7604C4E91F0494D3000FBA7F /* KVOViewController.m */,
+				7634A2F91F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.h */,
+				7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */,
 				76BABDDB1F03B67700D2235B /* Main.storyboard */,
 				76BABDDE1F03B67700D2235B /* Assets.xcassets */,
 				76BABDE01F03B67700D2235B /* LaunchScreen.storyboard */,
@@ -163,9 +178,9 @@
 		76BABE091F03B71800D2235B /* AFNetworking */ = {
 			isa = PBXGroup;
 			children = (
+				76BABE0C1F03B71800D2235B /* AFNetworking.h */,
 				76BABE0A1F03B71800D2235B /* AFHTTPSessionManager.h */,
 				76BABE0B1F03B71800D2235B /* AFHTTPSessionManager.m */,
-				76BABE0C1F03B71800D2235B /* AFNetworking.h */,
 				76BABE0D1F03B71800D2235B /* AFNetworkReachabilityManager.h */,
 				76BABE0E1F03B71800D2235B /* AFNetworkReachabilityManager.m */,
 				76BABE0F1F03B71800D2235B /* AFSecurityPolicy.h */,
@@ -247,6 +262,7 @@
 				TargetAttributes = {
 					76BABDCE1F03B67700D2235B = {
 						CreatedOnToolsVersion = 8.3.3;
+						DevelopmentTeam = 487PQPPTGA;
 						ProvisioningStyle = Automatic;
 					};
 					76BABDE71F03B67700D2235B = {
@@ -316,12 +332,15 @@
 				76BABE1C1F03B71800D2235B /* AFURLSessionManager.m in Sources */,
 				76BABDDA1F03B67700D2235B /* ViewController.m in Sources */,
 				76BABDD71F03B67700D2235B /* AppDelegate.m in Sources */,
+				7604C4EA1F0494D3000FBA7F /* KVOViewController.m in Sources */,
 				76BABE181F03B71800D2235B /* AFNetworkReachabilityManager.m in Sources */,
+				7604C4ED1F04BDEB000FBA7F /* SessionViewController.m in Sources */,
 				76BABDD41F03B67700D2235B /* main.m in Sources */,
 				76BABE191F03B71800D2235B /* AFSecurityPolicy.m in Sources */,
 				76BABE1A1F03B71800D2235B /* AFURLRequestSerialization.m in Sources */,
 				76BABE1B1F03B71800D2235B /* AFURLResponseSerialization.m in Sources */,
 				76BABE171F03B71800D2235B /* AFHTTPSessionManager.m in Sources */,
+				7634A2FB1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -472,6 +491,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 487PQPPTGA;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
 				INFOPLIST_FILE = "AFNetworking3.0+/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.kipo.AFNetworking3-0-";
@@ -483,6 +504,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 487PQPPTGA;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
 				INFOPLIST_FILE = "AFNetworking3.0+/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.kipo.AFNetworking3-0-";

@@ -20,14 +20,20 @@
 // THE SOFTWARE.
 
 #import <Foundation/Foundation.h>
+//做一个视频类的app时，考虑到网络如果是2G/3G/4G，那么最好是有一个switchButton来让用户选择是否使用2G/3G/4G来观看在线视频，此时你就需要判断当前网络状态，如果用户不允许2G/3G/4G网络观看在线视频，而此时手机网络又是2G/3G/4G网络，就得提示用户当前网络不支持播放在线视频。
 
 #if !TARGET_OS_WATCH
+//网络监控的实现是依赖SystemConfiguration
 #import <SystemConfiguration/SystemConfiguration.h>
 
 typedef NS_ENUM(NSInteger, AFNetworkReachabilityStatus) {
+    //未知
     AFNetworkReachabilityStatusUnknown          = -1,
+    //无网络
     AFNetworkReachabilityStatusNotReachable     = 0,
+    //WWAN 手机自带网络  EDGE/GPRS.
     AFNetworkReachabilityStatusReachableViaWWAN = 1,
+    //WIFI
     AFNetworkReachabilityStatusReachableViaWiFi = 2,
 };
 
@@ -47,21 +53,25 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  The current network reachability status.
  */
+//网络连接状态
 @property (readonly, nonatomic, assign) AFNetworkReachabilityStatus networkReachabilityStatus;
 
 /**
  Whether or not the network is currently reachable.
  */
+//网络是否连接
 @property (readonly, nonatomic, assign, getter = isReachable) BOOL reachable;
 
 /**
  Whether or not the network is currently reachable via WWAN.
  */
+//当前连接是否是WWAN
 @property (readonly, nonatomic, assign, getter = isReachableViaWWAN) BOOL reachableViaWWAN;
 
 /**
  Whether or not the network is currently reachable via WiFi.
  */
+//当前连接是否是WIFI
 @property (readonly, nonatomic, assign, getter = isReachableViaWiFi) BOOL reachableViaWiFi;
 
 ///---------------------
@@ -87,6 +97,7 @@ NS_ASSUME_NONNULL_BEGIN
 
  @return An initialized network reachability manager, actively monitoring the specified domain.
  */
+//监听制定domain的网络状态
 + (instancetype)managerForDomain:(NSString *)domain;
 
 /**
@@ -96,6 +107,7 @@ NS_ASSUME_NONNULL_BEGIN
 
  @return An initialized network reachability manager, actively monitoring the specified socket address.
  */
+//监听某个socket地址的网络状态
 + (instancetype)managerForAddress:(const void *)address;
 
 /**
@@ -121,11 +133,13 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  Starts monitoring for changes in network reachability status.
  */
+//开始监听
 - (void)startMonitoring;
 
 /**
  Stops monitoring for changes in network reachability status.
  */
+//停止监听
 - (void)stopMonitoring;
 
 ///-------------------------------------------------
@@ -135,6 +149,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  Returns a localized string representation of the current network reachability status.
  */
+//网络状态的本地语言的字符串
 - (NSString *)localizedNetworkReachabilityStatusString;
 
 ///---------------------------------------------------
@@ -146,6 +161,11 @@ NS_ASSUME_NONNULL_BEGIN
 
  @param block A block object to be executed when the network availability of the `baseURL` host changes.. This block has no return value and takes a single argument which represents the various reachability states from the device to the `baseURL`.
  */
+/*
+设置网络转态改变的回调，监听网络改变的回调有两种方式：
+1.使用这个方法。
+2.监听AFNetworkingReachabilityDidChangeNotification通知。
+*/
 - (void)setReachabilityStatusChangeBlock:(nullable void (^)(AFNetworkReachabilityStatus status))block;
 
 @end
@@ -197,6 +217,8 @@ NS_ASSUME_NONNULL_BEGIN
 
  @warning In order for network reachability to be monitored, include the `SystemConfiguration` framework in the active target's "Link Binary With Library" build phase, and add `#import <SystemConfiguration/SystemConfiguration.h>` to the header prefix of the project (`Prefix.pch`).
  */
+
+//网络状态变化相关的通知。接受的通知中会有一个userinfo 是一个NSDictionary 其中key就是AFNetworkingReachabilityNotificationStatusItem
 FOUNDATION_EXPORT NSString * const AFNetworkingReachabilityDidChangeNotification;
 FOUNDATION_EXPORT NSString * const AFNetworkingReachabilityNotificationStatusItem;
 
