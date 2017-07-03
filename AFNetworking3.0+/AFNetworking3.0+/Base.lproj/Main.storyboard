@@ -51,10 +51,19 @@
                                     <segue destination="axK-yY-AST" kind="show" id="fnl-tw-2Rf"/>
                                 </connections>
                             </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="swj-bR-Mu7">
+                                <rect key="frame" x="172" y="186" width="30" height="30"/>
+                                <state key="normal" title="SSL"/>
+                                <connections>
+                                    <segue destination="WlZ-s5-XDd" kind="show" id="o0R-0s-Yha"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="tAy-av-xmA" firstAttribute="centerX" secondItem="8bC-Xf-vdC" secondAttribute="centerX" id="4l0-JV-YYF"/>
+                            <constraint firstItem="swj-bR-Mu7" firstAttribute="top" secondItem="hsK-kf-qCe" secondAttribute="bottom" constant="20" id="V4w-D8-LDA"/>
+                            <constraint firstItem="swj-bR-Mu7" firstAttribute="centerX" secondItem="hsK-kf-qCe" secondAttribute="centerX" id="ayV-0l-8w9"/>
                             <constraint firstItem="hsK-kf-qCe" firstAttribute="top" secondItem="tAy-av-xmA" secondAttribute="bottom" constant="22" id="tNz-MO-6fq"/>
                             <constraint firstItem="tAy-av-xmA" firstAttribute="top" secondItem="y3c-jy-aDJ" secondAttribute="bottom" constant="20" id="ta1-HJ-e9r"/>
                             <constraint firstItem="hsK-kf-qCe" firstAttribute="centerX" secondItem="tAy-av-xmA" secondAttribute="centerX" id="yHD-ld-FOI"/>
@@ -65,6 +74,24 @@
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="332" y="72"/>
+        </scene>
+        <!--View Controller-->
+        <scene sceneID="u2l-sr-ION">
+            <objects>
+                <viewController id="WlZ-s5-XDd" customClass="SSLViewController" sceneMemberID="viewController">
+                    <layoutGuides>
+                        <viewControllerLayoutGuide type="top" id="jbn-tg-qMf"/>
+                        <viewControllerLayoutGuide type="bottom" id="Dmz-FO-WgP"/>
+                    </layoutGuides>
+                    <view key="view" contentMode="scaleToFill" id="nnV-eB-Hqe">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="pLR-Ef-ckD" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="-369" y="818"/>
         </scene>
         <!--Reachability View Controller-->
         <scene sceneID="7Pe-Xr-ngB">

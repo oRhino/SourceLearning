@@ -10,6 +10,9 @@
 		7604C4EA1F0494D3000FBA7F /* KVOViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7604C4E91F0494D3000FBA7F /* KVOViewController.m */; };
 		7604C4ED1F04BDEB000FBA7F /* SessionViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7604C4EC1F04BDEB000FBA7F /* SessionViewController.m */; };
 		7634A2FB1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m in Sources */ = {isa = PBXBuildFile; fileRef = 7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */; };
+		7688D4421F0A597400C82854 /* SSLViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 7688D4411F0A597400C82854 /* SSLViewController.m */; };
+		7688D4451F0A5C6F00C82854 /* baidu.cer in Resources */ = {isa = PBXBuildFile; fileRef = 7688D4431F0A5C6E00C82854 /* baidu.cer */; };
+		7688D4461F0A5C6F00C82854 /* 12306.cer in Resources */ = {isa = PBXBuildFile; fileRef = 7688D4441F0A5C6E00C82854 /* 12306.cer */; };
 		769169731F08C9D000402AFC /* ReachabilityViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 769169721F08C9D000402AFC /* ReachabilityViewController.m */; };
 		76BABDD41F03B67700D2235B /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD31F03B67700D2235B /* main.m */; };
 		76BABDD71F03B67700D2235B /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 76BABDD61F03B67700D2235B /* AppDelegate.m */; };
@@ -51,6 +54,10 @@
 		7604C4EC1F04BDEB000FBA7F /* SessionViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SessionViewController.m; sourceTree = "<group>"; };
 		7634A2F91F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UIViewController+ViewDidLoad.h"; sourceTree = "<group>"; };
 		7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+ViewDidLoad.m"; sourceTree = "<group>"; };
+		7688D4401F0A597400C82854 /* SSLViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SSLViewController.h; sourceTree = "<group>"; };
+		7688D4411F0A597400C82854 /* SSLViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SSLViewController.m; sourceTree = "<group>"; };
+		7688D4431F0A5C6E00C82854 /* baidu.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = baidu.cer; path = ../../../baidu.cer; sourceTree = "<group>"; };
+		7688D4441F0A5C6E00C82854 /* 12306.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = 12306.cer; path = ../../../12306.cer; sourceTree = "<group>"; };
 		769169711F08C9D000402AFC /* ReachabilityViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ReachabilityViewController.h; sourceTree = "<group>"; };
 		769169721F08C9D000402AFC /* ReachabilityViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ReachabilityViewController.m; sourceTree = "<group>"; };
 		76BABDCF1F03B67700D2235B /* AFNetworking3.0+.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AFNetworking3.0+.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -145,6 +152,10 @@
 				7634A2FA1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m */,
 				769169711F08C9D000402AFC /* ReachabilityViewController.h */,
 				769169721F08C9D000402AFC /* ReachabilityViewController.m */,
+				7688D4401F0A597400C82854 /* SSLViewController.h */,
+				7688D4411F0A597400C82854 /* SSLViewController.m */,
+				7688D4431F0A5C6E00C82854 /* baidu.cer */,
+				7688D4441F0A5C6E00C82854 /* 12306.cer */,
 				76BABDDB1F03B67700D2235B /* Main.storyboard */,
 				76BABDDE1F03B67700D2235B /* Assets.xcassets */,
 				76BABDE01F03B67700D2235B /* LaunchScreen.storyboard */,
@@ -309,6 +320,8 @@
 			files = (
 				76BABDE21F03B67700D2235B /* LaunchScreen.storyboard in Resources */,
 				76BABDDF1F03B67700D2235B /* Assets.xcassets in Resources */,
+				7688D4461F0A5C6F00C82854 /* 12306.cer in Resources */,
+				7688D4451F0A5C6F00C82854 /* baidu.cer in Resources */,
 				76BABDDD1F03B67700D2235B /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -347,6 +360,7 @@
 				76BABE1B1F03B71800D2235B /* AFURLResponseSerialization.m in Sources */,
 				76BABE171F03B71800D2235B /* AFHTTPSessionManager.m in Sources */,
 				7634A2FB1F03F2CD00F2AAE0 /* UIViewController+ViewDidLoad.m in Sources */,
+				7688D4421F0A597400C82854 /* SSLViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -23,11 +23,11 @@
 #import <Security/Security.h>
 
 typedef NS_ENUM(NSUInteger, AFSSLPinningMode) {
-    //代表无条件信任服务器的证书
+    //在系统的信任的证书列表中对服务端返回的证书进行验证
     AFSSLPinningModeNone,
-    //代表会对服务器返回的证书中的PublicKey进行验证，通过则通过，否则不通过
+    //客户端需要有证书,代表会对服务器返回的证书中的PublicKey(公钥)进行验证
     AFSSLPinningModePublicKey,
-    //代表会对服务器返回的证书同本地证书全部进行校验，通过则通过，否则不通过
+    //客户端需要有证书,先验证证书域名/有效期等信息，然后验证服务端返回的证书和本地的是否一致
     AFSSLPinningModeCertificate,
 };
 
@@ -36,7 +36,7 @@ typedef NS_ENUM(NSUInteger, AFSSLPinningMode) {
 
  Adding pinned SSL certificates to your app helps prevent man-in-the-middle attacks and other vulnerabilities. Applications dealing with sensitive customer data or financial information are strongly encouraged to route all communication over an HTTPS connection with SSL pinning configured and enabled.
  */
-//AFSecurityPolicy 用来评价通过X.509(数字证书的标准)的数字证书和公开密钥进行的安全网络连接是否值得信任。在应用内添加SSL证书能够有效的防止中间人的攻击和安全漏洞。强烈建议涉及用户敏感或隐私数据或金融信息的应用全部网络连接都采用使用SSL的HTTPS连接。
+//AFSecurityPolicy用来验证 X.509(数字证书标准)的数字证书和公开密钥进行的安全网络连接是否值得信任。在应用内添加SSL证书能够有效的防止中间人的攻击和安全漏洞。强烈建议涉及用户敏感或隐私数据或金融信息的应用全部网络连接都采用使用SSL的HTTPS连接。
 
 NS_ASSUME_NONNULL_BEGIN
 
