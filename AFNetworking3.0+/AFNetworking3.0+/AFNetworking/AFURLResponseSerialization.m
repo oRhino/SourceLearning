@@ -782,8 +782,7 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
                           error:(NSError *__autoreleasing *)error
 {
     
-    // 可能确实不能确定返回的responsed的content-type，此时可以使用AFCompoundResponseSerializer
-    // 总会找到合适的Serializer
+    // 可能确实不能确定返回的responsed的content-type，此时可以使用AFCompoundResponseSerializer,遍历找到合适的Serializer
     for (id <AFURLResponseSerialization> serializer in self.responseSerializers) {
         if (![serializer isKindOfClass:[AFHTTPResponseSerializer class]]) {
             continue;
@@ -795,7 +794,6 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
             if (error) {
                 *error = AFErrorWithUnderlyingError(serializerError, *error);
             }
-
             return responseObject;
         }
     }

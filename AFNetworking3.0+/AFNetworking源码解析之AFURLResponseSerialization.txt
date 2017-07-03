@@ -1,0 +1,150 @@
+
+![](http://upload-images.jianshu.io/upload_images/1217241-93643ec871bd7808.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+##简介
+AFURLResponseSerialization可以理解成对网络请求的序列化操作,它是一个协议,用于验证数据的有效性并提供反序列化的方式,我们只需根据不同的响应类型选择合适的反序列化方式
+
+```
+@protocol AFURLResponseSerialization <NSObject, NSSecureCoding, NSCopying>
+//对返回的数据进行解析，解析response为对应的数据类型（JSON、XML、plist、Image）,AFHTTPResponseSerializer的子类会重写这个方法，根据不同的需要解析成不同的结果，如AFJSONResponseSerializer会将数据解析成为JSON数据
+- (nullable id)responseObjectForResponse:(nullable NSURLResponse *)response
+                           data:(nullable NSData *)data
+                          error:(NSError * _Nullable __autoreleasing *)error NS_SWIFT_NOTHROW;
+
+@end
+
+```
+###UML
+
+![UML](http://upload-images.jianshu.io/upload_images/1217241-88988d3b938492bb.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+###AFHTTPResponseSerializer
+我们可以看到许多类都是继承该类,该类的结构图如下:
+![AFHTTPResponseSerializer](http://upload-images.jianshu.io/upload_images/1217241-ffb92e3471fef88a.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+```
+//创建一个序列化对象,使用默认配置
++ (instancetype)serializer;
+
+//可接受的状态码集合, (默认)200-299,不在这个范围内将会在验证期间得到一个error
+@property (nonatomic, copy, nullable) NSIndexSet *acceptableStatusCodes;
+
+//可接受的 MIME类型 (Content-Type)
+@property (nonatomic, copy, nullable) NSSet <NSString *> *acceptableContentTypes;
+
+
+//通过验证MIMEType（数据类型），StatusCode（状态码：2xx为成功状态）是否满足条件来判断网络返回的数据是否有效
+- (BOOL)validateResponse:(nullable NSHTTPURLResponse *)response
+                    data:(nullable NSData *)data
+                   error:(NSError * _Nullable __autoreleasing *)error;
+```
+####关于状态码的解释
+状态码的职责是当客户端向服务器端发送请求时，描述返回的请求结果。借助状态码，用户可以知道服务器端是正常处理了请求，还是出现了错误。
+如:200,表示请求成功.状态码一般以3位数字和原因短语组成
+分类如下:
+
+|  | 类别 | 原因短语 |
+| -- | -- | -- |
+| 1XX | 信息性状态码 | 接收的请求正在处理 |
+| 2XX | 成功状态码 | 请求正常处理完毕 |
+| 3XX | 重定向状态码 | 需要进行附加操作以完成请求 |
+| 4XX | 客户端错误状态码 | 服务器无法处理请求 |
+| 5XX | 服务器错误状态码 | 服务器处理请求出错 |
+
+Content-Type说明了实体主体内对象的媒体类型,例如JSON数据的Content-Type为application/json, text/json, text/javascript.
+
+主要验证响应方法:(验证Content-Type,StatusCode)
+
+```
+- (BOOL)validateResponse:(NSHTTPURLResponse *)response
+                    data:(NSData *)data
+                   error:(NSError * __autoreleasing *)error
+{
+    BOOL responseIsValid = YES;
+    NSError *validationError = nil;
+
+    if (response && [response isKindOfClass:[NSHTTPURLResponse class]]) {
+        //不在接受的MIME类型
+        if (self.acceptableContentTypes &&
+            ![self.acceptableContentTypes containsObject:[response MIMEType]] &&
+            !([response MIMEType] == nil && [data length] == 0)) {
+
+            if ([data length] > 0 && [response URL]) {
+                NSMutableDictionary *mutableUserInfo = [@{
+                                                          NSLocalizedDescriptionKey: [NSString stringWithFormat:NSLocalizedStringFromTable(@"Request failed: unacceptable content-type: %@", @"AFNetworking", nil), [response MIMEType]],
+                                                          NSURLErrorFailingURLErrorKey:[response URL],
+                                                          AFNetworkingOperationFailingURLResponseErrorKey: response,
+                                                        } mutableCopy];
+                if (data) {
+                    mutableUserInfo[AFNetworkingOperationFailingURLResponseDataErrorKey] = data;
+                }
+
+                validationError = AFErrorWithUnderlyingError([NSError errorWithDomain:AFURLResponseSerializationErrorDomain code:NSURLErrorCannotDecodeContentData userInfo:mutableUserInfo], validationError);
+            }
+            //验证失败
+            responseIsValid = NO;
+        }
+   
+        //验证状态码
+        if (self.acceptableStatusCodes && ![self.acceptableStatusCodes containsIndex:(NSUInteger)response.statusCode] && [response URL]) {
+            NSMutableDictionary *mutableUserInfo = [@{
+                                               NSLocalizedDescriptionKey: [NSString stringWithFormat:NSLocalizedStringFromTable(@"Request failed: %@ (%ld)", @"AFNetworking", nil), [NSHTTPURLResponse localizedStringForStatusCode:response.statusCode], (long)response.statusCode],
+                                               NSURLErrorFailingURLErrorKey:[response URL],
+                                               AFNetworkingOperationFailingURLResponseErrorKey: response,
+                                       } mutableCopy];
+
+            if (data) {
+                mutableUserInfo[AFNetworkingOperationFailingURLResponseDataErrorKey] = data;
+            }
+
+            validationError = AFErrorWithUnderlyingError([NSError errorWithDomain:AFURLResponseSerializationErrorDomain code:NSURLErrorBadServerResponse userInfo:mutableUserInfo], validationError);
+
+            responseIsValid = NO;
+        }
+    }
+
+    if (error && !responseIsValid) {
+        *error = validationError;
+    }
+
+    return responseIsValid;
+}
+```
+
+子类只需修改相应的Content-Type类型和重写协议方法实现数据的解析即可,可查看下面列表:
+
+| 类别 | 解析数据类型 | Content-Type | 解析数据用到的类 |
+| -- | -- | -- | -- |
+| AFJSONResponseSerializer |  JSON | application/json, text/json, text/javascript | NSJSONSerialization |
+| AFXMLParserResponseSerializer | XML | application/xml, text/xml | NSXMLDocument |
+| AFXMLDocumentResponseSerializer | XML(MAC-OS) | application/xml, text/xml | NSXMLDocument |
+| AFPropertyListResponseSerializer | plist | application/x-plist | NSPropertyListSerialization |
+| AFImageResponseSerializer | image |  image/tiff,image/jpeg,image/gif,image/png,image/ico,image/x-icon,image/bmp,image/x-bmp,image/x-xbitmap,image/x-win-bitmap| NSData->image |
+
+AFCompoundResponseSerializer表示一组Serializer的集合,用于可能不确定返回的Content-type,也就是数据类型时使用.
+
+```
+- (id)responseObjectForResponse:(NSURLResponse *)response
+                           data:(NSData *)data
+                          error:(NSError *__autoreleasing *)error
+{
+    
+    // 可能确实不能确定返回的responsed的content-type，此时可以使用AFCompoundResponseSerializer,遍历找到合适的Serializer
+    for (id <AFURLResponseSerialization> serializer in self.responseSerializers) {
+        if (![serializer isKindOfClass:[AFHTTPResponseSerializer class]]) {
+            continue;
+        }
+
+        NSError *serializerError = nil;
+        id responseObject = [serializer responseObjectForResponse:response data:data error:&serializerError];
+        if (responseObject) {
+            if (error) {
+                *error = AFErrorWithUnderlyingError(serializerError, *error);
+            }
+            return responseObject;
+        }
+    }
+
+    return [super responseObjectForResponse:response data:data error:error];
+}
+
+```

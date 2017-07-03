@@ -65,40 +65,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, assign) NSStringEncoding stringEncoding DEPRECATED_MSG_ATTRIBUTE("The string encoding is never used. AFHTTPResponseSerializer only validates status codes and content types but does not try to decode the received data in any way.");
 
-/**
- Creates and returns a serializer with default configuration.
- */
+//创建一个序列化对象,使用默认配置
 + (instancetype)serializer;
 
-///-----------------------------------------
-/// @name Configuring Response Serialization
-///-----------------------------------------
-
-/**
- The acceptable HTTP status codes for responses. When non-`nil`, responses with status codes not contained by the set will result in an error during validation.
-
- See http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
- */
 //可接受的状态码集合, (默认)200-299,不在这个范围内将会在验证期间得到一个error
 @property (nonatomic, copy, nullable) NSIndexSet *acceptableStatusCodes;
 
-/**
- The acceptable MIME types for responses. When non-`nil`, responses with a `Content-Type` with MIME types that do not intersect with the set will result in an error during validation.
- */
-//可接受的 MIME类型
+//可接受的 MIME类型 (Content-Type)
 @property (nonatomic, copy, nullable) NSSet <NSString *> *acceptableContentTypes;
 
-/**
- Validates the specified response and data.
 
- In its base implementation, this method checks for an acceptable status code and content type. Subclasses may wish to add other domain-specific checks.
-
- @param response The response to be validated.
- @param data The data associated with the response.
- @param error The error that occurred while attempting to validate the response.
-
- @return `YES` if the response is valid, otherwise `NO`.
- */
 //通过验证MIMEType（数据类型），StatusCode（状态码：2xx为成功状态）是否满足条件来判断网络返回的数据是否有效
 - (BOOL)validateResponse:(nullable NSHTTPURLResponse *)response
                     data:(nullable NSData *)data
