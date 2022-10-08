@@ -143,10 +143,8 @@ function createInvoker(
     /**(比如父元素的事件是根据响应式数据进行绑定的,子元素绑定的事件函数中对响应式数据进行修改,
     触发更新,父元素的事件进行了绑定,由于事件冒泡,父元素的事件也进行了执行)
     Example: 
-    const { effect, ref } = VueReactivity
-
+const { effect, ref } = VueReactivity
 const bol = ref(false)
-
 effect(() => {
   // 创建 vnode
   const vnode = {

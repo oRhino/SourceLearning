@@ -75,6 +75,8 @@ export class ReactiveEffect<T = any> {
   // dev only
   onTrigger?: (event: DebuggerEvent) => void
 
+  // 构造器可以接受三个参数：fn（副作用函数）、scheduler（调度器）、scope（一个EffectScope作用域对象），
+  // 在构造器中调用了一个recordEffectScope方法，这个方法会将当前ReactiveEffect对象（this）放入对应的EffectScope作用域（scope）中。
   constructor(
     public fn: () => T, //原函数
     public scheduler: EffectScheduler | null = null,
@@ -84,31 +86,45 @@ export class ReactiveEffect<T = any> {
   }
 
   run() {
+    //首先判断ReactiveEffect的激活状态（active），如果未激活（this.active === false），那么会立马执行this.fn并返回他的执行结果
     if (!this.active) {
       return this.fn()
     }
     let parent: ReactiveEffect | undefined = activeEffect
     let lastShouldTrack = shouldTrack
+    // 使用while循环寻找parent.parent，一旦parent与this相等，立即结束循环。
     while (parent) {
       if (parent === this) {
         return
       }
       parent = parent.parent
     }
+
     try {
+      // 建立一个嵌套effect的关系
       this.parent = activeEffect
       activeEffect = this
       shouldTrack = true
 
+      // effectTrackDepth是个全局变量为effect的深度，层数从1开始计数，
+      // trackOpBit使用二进制标记依赖收集的状态（如00000000000000000000000000000010表示所处深度为1）
       trackOpBit = 1 << ++effectTrackDepth
 
+      // 如果effectTrackDepth未超出最大标记位（maxMarkerBits = 30），
+      // 会调用initDepMarkers方法将this.deps中的所有dep标记为已经被track的状态；
+      // 否则使用cleanupEffect移除deps中的所有dep。
+
+      //标记dep为已被track或移除dep的作用就是移除多余的依赖,比如三目运算造成的分支切换
       if (effectTrackDepth <= maxMarkerBits) {
+        // 将依赖标记为已收集
         initDepMarkers(this)
       } else {
         cleanupEffect(this)
       }
       return this.fn()
     } finally {
+      //根据一些状态移除多余的依赖、将effectTrackDepth回退一层，
+      // activeEffect指向当前ReactiveEffect的parent、shouldTrack = lastShouldTrack、this.parent置为undefined
       if (effectTrackDepth <= maxMarkerBits) {
         finalizeDepMarkers(this)
       }
@@ -168,16 +184,26 @@ export interface ReactiveEffectRunner<T = any> {
   effect: ReactiveEffect
 }
 
+// effect可以接收两个参数，其中第二个参数为可选参数，可以不传。第一个参数是一个副作用函数fn，第二个参数是个对象，该对象可以有如下属性：
+
+// lazy：boolean，是否懒加载，如果是true，调用effect不会立即执行监听函数，需要用户手动执行
+// scheduler：一个调度函数，如果存在调度函数，在触发依赖时，执行该调度函数
+// scope：一个EffectScope作用域对象
+// allowRecurse：boolean，允许递归
+// onStop：effect被停止时的钩子
 export function effect<T = any>(
   fn: () => T,
   options?: ReactiveEffectOptions
 ): ReactiveEffectRunner {
-  //如果已经是effect  取出原函数
+  // 如果存在fn.effect，那么说明fn已经被effect处理过了，然后使用fn.effect.fn作为fn,原函数
   if ((fn as ReactiveEffectRunner).effect) {
     fn = (fn as ReactiveEffectRunner).effect.fn
   }
 
   const _effect = new ReactiveEffect(fn)
+  // 如果存在option对象的话，会将options，合并到_effect中。
+  // 如果存在options.scope，会调用recordEffectScope将_effect放入options.scope。
+  // 如果不存在options或options.lazy === false，那么会执行_effect.run()，进行依赖收集。
   if (options) {
     extend(_effect, options)
     if (options.scope) recordEffectScope(_effect, options.scope)
@@ -185,6 +211,9 @@ export function effect<T = any>(
   if (!options || !options.lazy) {
     _effect.run()
   }
+
+  //将_effect.run中的this指向它本身，这样做的目的是用户在主动执行runner时，this指针指向的是_effect对象，
+  //然后将_effect作为runner的effect属性，并将runner返回。
   const runner = _effect.run.bind(_effect) as ReactiveEffectRunner
   runner.effect = _effect
   return runner
@@ -212,13 +241,11 @@ export function resetTracking() {
   shouldTrack = last === undefined ? true : last
 }
 
-/**
- * 收集依赖
- * @param target 目标
- * @param type  操作类型
- * @param key key
- */
+// target（响应式对象的原始对象）
+// type（触发依赖操作的方式，有三种取值：TrackOpTypes.GET、TrackOpTypes.HAS、TrackOpTypes.ITERATE）
+// key（触发依赖收集的key）
 export function track(target: object, type: TrackOpTypes, key: unknown) {
+  //只有shouldTrack为true且存在activeEffect时才可以进行依赖收集
   if (shouldTrack && activeEffect) {
     let depsMap = targetMap.get(target)
     if (!depsMap) {
@@ -243,15 +270,23 @@ export function trackEffects(
 ) {
   let shouldTrack = false
   if (effectTrackDepth <= maxMarkerBits) {
+    //根据tracked标识判断是否进行依赖收集
+
+    // 如果newTracked(dep) === true，说明在本次run方法执行过程中，dep已经被收集过了，shouldTrack不变；
+    // 如果newTracked(dep) === false，要把dep标记为新收集的，虽然dep在本次收集过程中是新收集的，
+    // 但它可能在之前的收集过程中已经被收集了，所以shouldTrack的值取决于dep是否在之前已经被收集过了。
+
     if (!newTracked(dep)) {
       dep.n |= trackOpBit // set newly tracked
       shouldTrack = !wasTracked(dep)
     }
   } else {
     // Full cleanup mode.
+    // 判断dep中是否含有activeEffect
     shouldTrack = !dep.has(activeEffect!)
   }
 
+  //将activeEffect添加到dep中，同时将dep放入activeEffect.deps中
   if (shouldTrack) {
     dep.add(activeEffect!)
     activeEffect!.deps.push(dep)
@@ -265,15 +300,17 @@ export function trackEffects(
 }
 
 /**
- * 触发依赖
- * @param target
- * @param type
- * @param key
- * @param newValue
- * @param oldValue
- * @param oldTarget
- * @returns
- */
+target：响应式数据的原始对象
+type：操作类型。是个枚举类TriggerOpTypes，共有四种操作类型：
+TriggerOpTypes.SET：如obj.xx = xx（修改属性）、map.set(xx, xx)（修改操作不是新增操作）、arr[index] = xx(index < arr.length)、arr.length = 0
+TriggerOpTypes.ADD：如obj.xx = xx（新增属性）、set.add(xx)、map.set(xx, xx)（新增操作）、arr[index] = xx(index >= arr.length)
+TriggerOpTypes.DELETE：如delete obj.xx、set/map.delete(xx)
+TriggerOpTypes.CLEAR：如map/set.clear()
+key：可选，触发trigger的键，如obj.foo = 1，key为foo。
+newValue：可选，新的值，如obj.foo = 1，newValue为1。
+oldValue：可选，旧的值，如obj.foo = 1，oldValue为修改前的obj.foo。
+oldTarget：可选，旧的原始对象，只在开发模式下有用。
+*/
 export function trigger(
   target: object,
   type: TriggerOpTypes,

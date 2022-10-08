@@ -284,6 +284,7 @@ export function createAppAPI<HostElement>(
         isSVG?: boolean
       ): any {
         if (!isMounted) {
+          //创建虚拟节点
           const vnode = createVNode(
             rootComponent as ConcreteComponent,
             rootProps

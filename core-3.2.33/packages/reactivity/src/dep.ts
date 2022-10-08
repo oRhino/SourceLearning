@@ -24,9 +24,9 @@ export const createDep = (effects?: ReactiveEffect[]): Dep => {
   dep.n = 0
   return dep
 }
-
+// wasTracked(dep)返回true，意味着dep在之前的依赖收集过程中已经被收集过，或者说在之前run执行过程中已经被收集
 export const wasTracked = (dep: Dep): boolean => (dep.w & trackOpBit) > 0
-
+// newTracked(dep)返回true，意味着dep是在本次依赖收集过程中新收集到的，或者说在本次run执行过程中新收集到的
 export const newTracked = (dep: Dep): boolean => (dep.n & trackOpBit) > 0
 
 export const initDepMarkers = ({ deps }: ReactiveEffect) => {

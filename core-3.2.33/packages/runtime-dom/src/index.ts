@@ -40,6 +40,7 @@ let renderer: Renderer<Element | ShadowRoot> | HydrationRenderer
 let enabledHydration = false
 
 function ensureRenderer() {
+  //创建渲染器,传入渲染器需要的渲染方法
   return (
     renderer ||
     (renderer = createRenderer<Node, Element | ShadowRoot>(rendererOptions))
@@ -72,6 +73,7 @@ export const createApp = ((...args) => {
   }
 
   const { mount } = app
+  //重写mount方法
   app.mount = (containerOrSelector: Element | ShadowRoot | string): any => {
     const container = normalizeContainer(containerOrSelector)
     if (!container) return

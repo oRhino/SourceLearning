@@ -130,18 +130,21 @@ export interface VNode<
   ExtraProps = { [key: string]: any }
 > {
   /**
-   * @internal
+   * @internal // 标记为一个VNode
    */
   __v_isVNode: true
-
   /**
-   * @internal
+   * @internal // 禁止将VNode处理为响应式对象
    */
   [ReactiveFlags.SKIP]: true
 
+  //// 节点类型
   type: VNodeTypes
+  // 节点的属性
   props: (VNodeProps & ExtraProps) | null
+  // 便与DOM的复用，主要用在diff算法中
   key: string | number | symbol | null
+  // 被用来给元素或子组件注册引用信息
   ref: VNodeNormalizedRef | null
   /**
    * SFC only. This is assigned on vnode creation using currentScopeId
@@ -156,35 +159,43 @@ export interface VNode<
    * @internal
    */
   slotScopeIds: string[] | null
+  // 子节点
   children: VNodeNormalizedChildren
+  // 组件实例
   component: ComponentInternalInstance | null
+  // 指令信息
   dirs: DirectiveBinding[] | null
   transition: TransitionHooks<HostElement> | null
 
   // DOM
+  // vnode对应的DOM
   el: HostNode | null
   anchor: HostNode | null // fragment anchor
+  // teleport需要挂载的目标DOM
   target: HostElement | null // teleport target
+  // teleport挂载所需的锚点
   targetAnchor: HostNode | null // teleport target anchor
   /**
    * number of elements contained in a static vnode
-   * @internal
+   * @internal // 对于Static vnode所包含的静态节点数量
    */
   staticCount: number
 
-  // suspense
+  // suspense // suspense组件的边界
   suspense: SuspenseBoundary | null
   /**
-   * @internal
+   * @internal suspense的default slot对应的vnode
    */
   ssContent: VNode | null
   /**
-   * @internal
+   * @internal suspense的fallback slot对应的vnode
    */
   ssFallback: VNode | null
 
   // optimization only
-  shapeFlag: number
+  // 用于优化的标记，主要用于判断节点类型
+  shapeFlag: number //@vue/shared ShapeFlags
+  // 用于diff优化的补丁标记
   patchFlag: number
   /**
    * @internal
@@ -397,6 +408,11 @@ const normalizeRef = ({
   ) as any
 }
 
+// 1.先创建一个vnode对象
+// 2.完善children及patchFlag属性
+// 3.判断是否应该被父Block收集
+// 4.处理兼容vue2
+// 5.返回vnode
 function createBaseVNode(
   type: VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
   props: (Data & VNodeProps) | null = null,
@@ -455,6 +471,7 @@ function createBaseVNode(
   }
 
   // track vnode for block tree
+  // 收集vnode到block树中
   if (
     isBlockTreeEnabled > 0 &&
     // avoid a block node from tracking itself
@@ -487,6 +504,20 @@ export const createVNode = (
   __DEV__ ? createVNodeWithArgsTransform : _createVNode
 ) as typeof _createVNode
 
+// type：vnode类型
+// props：vnode的属性
+// children：子vnode
+// patchFlag：补丁标记，由编译器生成vnode时的优化提示，在diff期间会进入对应优化
+// dynamicProps：动态属性
+// isBlockNode：是否是个Block节点
+// 1.如果type是个空的动态组件，将vnode.type指定为Comment注释节点。
+// 2.如果type已经是个vnode，则拷贝一个新的vnode返回。
+// 3.处理class component
+// 4.兼容vue2的异步组件及函数式组件
+// 5.class及style的标准化
+// 6.根据type属性初步确定patchFlag
+// 7.调用createBaseVNode方法创建vnode并返回
+
 function _createVNode(
   type: VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
   props: (Data & VNodeProps) | null = null,
@@ -495,35 +526,39 @@ function _createVNode(
   dynamicProps: string[] | null = null,
   isBlockNode = false
 ): VNode {
+  // 如果type是空的动态组件，进行提示，并将type指定为一个Comment注释DOM。
   if (!type || type === NULL_DYNAMIC_COMPONENT) {
     if (__DEV__ && !type) {
       warn(`Invalid vnode type when creating vnode: ${type}.`)
     }
     type = Comment
   }
-
+  // 如果type已经是个vnode，则复制个新的vnode
   if (isVNode(type)) {
+    // 如果type已经是个vnode，会从type复制出一个新的vnode。这种情况主要在<component :is="vnode"/>情况下发生
     // createVNode receiving an existing vnode. This happens in cases like
     // <component :is="vnode"/>
     // #2078 make sure to merge refs during the clone instead of overwriting it
     const cloned = cloneVNode(type, props, true /* mergeRef: true */)
     if (children) {
+      //// 修改其children属性及完善shapeFlag属性
       normalizeChildren(cloned, children)
     }
     return cloned
   }
 
-  // class component normalization.
+  // class component normalization. class组件的type
   if (isClassComponent(type)) {
     type = type.__vccOpts
   }
 
-  // 2.x async/functional component compat
+  // 2.x async/functional component compat 兼容2.x的异步及函数式组件
   if (__COMPAT__) {
     type = convertLegacyComponent(type, currentRenderingInstance)
   }
 
   // class & style normalization.
+  //class、style的标准化
   if (props) {
     // for reactive or proxy objects, we need to clone it to enable mutation.
     props = guardReactiveProps(props)!
@@ -542,6 +577,7 @@ function _createVNode(
   }
 
   // encode the vnode type information into a bitmap
+  // 根据type属性确定patchFlag
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
     : __FEATURE_SUSPENSE__ && isSuspense(type)
@@ -565,7 +601,7 @@ function _createVNode(
       type
     )
   }
-
+  //如果type不是vnode，在方法最后会调用一个createBaseVNode创建vnode
   return createBaseVNode(
     type,
     props,
@@ -585,6 +621,16 @@ export function guardReactiveProps(props: (Data & VNodeProps) | null) {
     : props
 }
 
+// 1. 被拷贝节点的props与额外的props的合并
+// 2. 创建新的vnode
+// - key的处理：取合并后的props中的key，如果不存在，取null
+// - ref的合并：根据是否需要合并ref，决定是否合并ref
+// - patchFlag的处理：如果vnode使用额外的props克隆，补丁标志不再可靠的，需要添加FULL_PROPS标志
+// - ssContent的处理：使用cloneVNode复制被拷贝节点的ssContent
+// - ssFallback的处理：使用cloneVNode复制被拷贝节点的ssFallback
+// 3. 兼容vue2
+// 4. 返回新的vnode
+
 export function cloneVNode<T, U>(
   vnode: VNode<T, U>,
   extraProps?: (Data & VNodeProps) | null,
@@ -593,6 +639,7 @@ export function cloneVNode<T, U>(
   // This is intentionally NOT using spread or extend to avoid the runtime
   // key enumeration cost.
   const { props, ref, patchFlag, children } = vnode
+  //// 如果存在extraProps，需要将extraProps和vnode的props进行合并
   const mergedProps = extraProps ? mergeProps(props || {}, extraProps) : props
   const cloned: VNode = {
     __v_isVNode: true,
@@ -600,6 +647,12 @@ export function cloneVNode<T, U>(
     type: vnode.type,
     props: mergedProps,
     key: mergedProps && normalizeKey(mergedProps),
+    //  如果存在额外的ref
+    //      如果需要合并ref
+    //          如果被拷贝节点中的ref是个数组，将调用normalizeRef处理ref，并将结果合并到被拷贝节点中的ref中
+    //          否则，创建一个新的数组，存储ref和normalizeRef(extraProps)的结果
+    //      否则直接调用normalizeRef(extraProps)处理新的ref
+    // 否则ref不变
     ref:
       extraProps && extraProps.ref
         ? // #2078 in the case of <component :is="vnode" ref="extra"/>
@@ -625,6 +678,11 @@ export function cloneVNode<T, U>(
     // existing patch flag to be reliable and need to add the FULL_PROPS flag.
     // note: preserve flag for fragments since they use the flag for children
     // fast paths only.
+    // 如果 vnode 使用额外的 props 克隆，我们不能再假设其现有的补丁标志是可靠的，需要添加 FULL_PROPS 标志
+    // 如果存在extraProps，并且vnode.type不是是Fragment片段的情况下：
+    // 如果patchFlag为-1，说明是静态节点，它的内容不会发生变化。新的vnode的patchFlag为PatchFlags.FULL_PROPS，表示props中存在动态key
+    // 如果patchFlag不为-1，将patchFlag与PatchFlags.FULL_PROPS进行或运算
+    // 否则patchFlag保持不变
     patchFlag:
       extraProps && vnode.type !== Fragment
         ? patchFlag === -1 // hoisted node
@@ -727,7 +785,7 @@ export function normalizeVNode(child: VNodeChild): VNode {
 export function cloneIfMounted(child: VNode): VNode {
   return child.el === null || child.memo ? child : cloneVNode(child)
 }
-
+// 对新复制的vnode，修改其children属性及完善shapeFlag属性
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0
   const { shapeFlag } = vnode
@@ -736,12 +794,16 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
   } else if (isArray(children)) {
     type = ShapeFlags.ARRAY_CHILDREN
   } else if (typeof children === 'object') {
+    // 如果vndoe是element或teleport
     if (shapeFlag & (ShapeFlags.ELEMENT | ShapeFlags.TELEPORT)) {
       // Normalize slot to plain children for plain element and Teleport
+      // 取默认插槽
       const slot = (children as any).default
       if (slot) {
         // _c marker is added by withCtx() indicating this is a compiled slot
+        // _c 标记由 withCtx() 添加，表示这是一个已编译的插槽
         slot._c && (slot._d = false)
+        // 将默认插槽的结果作为vnode的children
         normalizeChildren(vnode, slot())
         slot._c && (slot._d = true)
       }
@@ -750,12 +812,15 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
       type = ShapeFlags.SLOTS_CHILDREN
       const slotFlag = (children as RawSlots)._
       if (!slotFlag && !(InternalObjectKey in children!)) {
+        // 如果槽未规范化，则附加上下文实例（编译过或标准话的slots已经有上下文）
         // if slots are not normalized, attach context instance
         // (compiled / normalized slots already have context)
         ;(children as RawSlots)._ctx = currentRenderingInstance
       } else if (slotFlag === SlotFlags.FORWARDED && currentRenderingInstance) {
         // a child component receives forwarded slots from the parent.
         // its slot type is determined by its parent's slot type.
+        // 子组件接收来自父组件的转发slots。
+        // 它的插槽类型由其父插槽类型决定。
         if (
           (currentRenderingInstance.slots as RawSlots)._ === SlotFlags.STABLE
         ) {
@@ -790,23 +855,28 @@ export function mergeProps(...args: (Data & VNodeProps)[]) {
     for (const key in toMerge) {
       if (key === 'class') {
         if (ret.class !== toMerge.class) {
+          // 建立一个数组并调用normalizeClass，最终class会是字符串的形式
           ret.class = normalizeClass([ret.class, toMerge.class])
         }
       } else if (key === 'style') {
+        /// 建立style数组并调用normalizeStyle，最终style是对象形式
         ret.style = normalizeStyle([ret.style, toMerge.style])
       } else if (isOn(key)) {
         const existing = ret[key]
         const incoming = toMerge[key]
+        // 如果已经存在的key对应事件与incoming不同，并且已经存在的key对应事件中不包含incoming
         if (
           incoming &&
           existing !== incoming &&
           !(isArray(existing) && existing.includes(incoming))
         ) {
+          // 如果存在existing，将existing、incoming合并到一个新的数组中
           ret[key] = existing
             ? [].concat(existing as any, incoming as any)
             : incoming
         }
       } else if (key !== '') {
+        // 其他情况直接对ret[key]进行赋值，靠后合并的值会取代之前的值
         ret[key] = toMerge[key]
       }
     }

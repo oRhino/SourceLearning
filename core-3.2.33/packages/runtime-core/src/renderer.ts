@@ -2318,10 +2318,12 @@ function baseCreateRenderer(
 
   const render: RootRenderFunction = (vnode, container, isSVG) => {
     if (vnode == null) {
+      //卸载旧节点
       if (container._vnode) {
         unmount(container._vnode, null, null, true)
       }
     } else {
+      //打补丁
       patch(container._vnode || null, vnode, container, null, null, null, isSVG)
     }
     flushPostFlushCbs()
