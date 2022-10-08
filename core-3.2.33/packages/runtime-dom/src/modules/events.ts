@@ -12,6 +12,10 @@ interface Invoker extends EventListener {
 
 type EventValue = Function | Function[]
 
+//在关于时间的存储和比较方面，我们使用的是高精时间，即 performance.now。
+//但根据浏览器的不同，e.timeStamp 的值也会有所不同。它既可能是高精时间，也可能是非高精时间。
+//因此，严格来讲，这里需要做兼容处理。不过在 Chrome 49、Firefox 54、Opera 36 以及之后的版本中，e.timeStamp 的值都是高精时间。
+
 // Async edge case fix requires storing an event listener's attach timestamp.
 const [_getNow, skipTimestampCheck] = /*#__PURE__*/ (() => {
   let _getNow = Date.now
@@ -74,8 +78,10 @@ export function patchEvent(
   instance: ComponentInternalInstance | null = null
 ) {
   // vei = vue event invokers
-  //获取该元素包含所有事件处理函数invokers对象
+
+  //定义 el._vei 为一个对象，存在事件名称到事件处理函数的映射
   const invokers = el._vei || (el._vei = {})
+  // 根据事件名称获取invoker
   const existingInvoker = invokers[rawName]
 
   if (nextValue && existingInvoker) {
@@ -130,9 +136,48 @@ function createInvoker(
     // the solution is simple: we save the timestamp when a handler is attached,
     // and the handler would only fire if the event passed to it was fired
     // AFTER it was attached.
+    //e.timeStamp 是事件触发的时间
     const timeStamp = e.timeStamp || _getNow()
 
+    //屏蔽所有绑定时间晚于事件触发时间的事件处理函数的执行
+    /**(比如父元素的事件是根据响应式数据进行绑定的,子元素绑定的事件函数中对响应式数据进行修改,
+    触发更新,父元素的事件进行了绑定,由于事件冒泡,父元素的事件也进行了执行)
+    Example: 
+    const { effect, ref } = VueReactivity
+
+const bol = ref(false)
+
+effect(() => {
+  // 创建 vnode
+  const vnode = {
+    type: 'div',
+    props: bol.value
+      ? {
+          onClick: () => {
+            alert('父元素 clicked')
+          }
+        }
+      : {},
+    children: [
+      {
+        type: 'p',
+        props: {
+          onClick: () => {
+            bol.value = true
+          }
+        },
+        children: 'text'
+      }
+    ]
+  }
+  // 渲染 vnode
+  renderer.render(vnode, document.querySelector('#app'))
+})
+    */
+
+    // 只有事件发生的时间晚于事件处理函数绑定的时间，才执行事件处理函数
     if (skipTimestampCheck || timeStamp >= invoker.attached - 1) {
+      //执行事件处理函数
       callWithAsyncErrorHandling(
         patchStopImmediatePropagation(e, invoker.value),
         instance,
@@ -142,6 +187,7 @@ function createInvoker(
     }
   }
   invoker.value = initialValue
+  //存储事件处理函数被绑定的时间
   invoker.attached = getNow()
   return invoker
 }
@@ -150,12 +196,14 @@ function patchStopImmediatePropagation(
   e: Event,
   value: EventValue
 ): EventValue {
+  // value是数组(一个元素同一个类型事件绑定多个处理函数)
   if (isArray(value)) {
     const originalStop = e.stopImmediatePropagation
     e.stopImmediatePropagation = () => {
       originalStop.call(e)
       ;(e as any)._stopped = true
     }
+    // 遍历它并逐个调用事件处理函数
     return value.map(fn => (e: Event) => !(e as any)._stopped && fn && fn(e))
   } else {
     return value
