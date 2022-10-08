@@ -12,8 +12,8 @@ import {
   DeprecationTypes,
   compatUtils
 } from '@vue/runtime-core'
-import { nodeOps } from './nodeOps'
-import { patchProp } from './patchProp'
+import { nodeOps } from './nodeOps' //对象
+import { patchProp } from './patchProp' //方法
 // Importing from the compiler, will be tree-shaken in prod
 import {
   isFunction,
@@ -30,7 +30,7 @@ declare module '@vue/reactivity' {
     runtimeDOMBailTypes: Node | Window
   }
 }
-
+//渲染时用到的所有方法
 const rendererOptions = /*#__PURE__*/ extend({ patchProp }, nodeOps)
 
 // lazy create the renderer - this makes core renderer logic tree-shakable

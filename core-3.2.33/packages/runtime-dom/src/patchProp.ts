@@ -10,6 +10,7 @@ const nativeOnRE = /^on[a-z]/
 
 type DOMRendererOptions = RendererOptions<Node, Element>
 
+//属性操作
 export const patchProp: DOMRendererOptions['patchProp'] = (
   el,
   key,
@@ -22,11 +23,15 @@ export const patchProp: DOMRendererOptions['patchProp'] = (
   unmountChildren
 ) => {
   if (key === 'class') {
+    //class
     patchClass(el, nextValue, isSVG)
   } else if (key === 'style') {
+    //style
     patchStyle(el, prevValue, nextValue)
   } else if (isOn(key)) {
+    //event
     // ignore v-model listeners
+    // onUpdate:
     if (!isModelListener(key)) {
       patchEvent(el, key, prevValue, nextValue, parentComponent)
     }
@@ -37,6 +42,7 @@ export const patchProp: DOMRendererOptions['patchProp'] = (
       ? ((key = key.slice(1)), false)
       : shouldSetAsProp(el, key, nextValue, isSVG)
   ) {
+    //prop
     patchDOMProp(
       el,
       key,
@@ -56,6 +62,7 @@ export const patchProp: DOMRendererOptions['patchProp'] = (
     } else if (key === 'false-value') {
       ;(el as any)._falseValue = nextValue
     }
+    //attr
     patchAttr(el, key, nextValue, isSVG, parentComponent)
   }
 }

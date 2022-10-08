@@ -6,18 +6,20 @@ const doc = (typeof document !== 'undefined' ? document : null) as Document
 
 const templateContainer = doc && /*#__PURE__*/ doc.createElement('template')
 
+//节点操作
 export const nodeOps: Omit<RendererOptions<Node, Element>, 'patchProp'> = {
+  //插入节点
   insert: (child, parent, anchor) => {
     parent.insertBefore(child, anchor || null)
   },
-
+  //删除节点
   remove: child => {
     const parent = child.parentNode
     if (parent) {
       parent.removeChild(child)
     }
   },
-
+  //创建节点
   createElement: (tag, isSVG, is, props): Element => {
     const el = isSVG
       ? doc.createElementNS(svgNS, tag)
@@ -29,23 +31,23 @@ export const nodeOps: Omit<RendererOptions<Node, Element>, 'patchProp'> = {
 
     return el
   },
-
+  //创建文本
   createText: text => doc.createTextNode(text),
-
+  //创建注释
   createComment: text => doc.createComment(text),
-
+  //设置文本节点内容
   setText: (node, text) => {
     node.nodeValue = text
   },
-
+  //设置文本元素内容
   setElementText: (el, text) => {
     el.textContent = text
   },
-
+  //父节点
   parentNode: node => node.parentNode as Element | null,
-
+  //下一个兄弟节点
   nextSibling: node => node.nextSibling,
-
+  //查找元素
   querySelector: selector => doc.querySelector(selector),
 
   setScopeId(el, id) {

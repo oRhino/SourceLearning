@@ -70,6 +70,8 @@ export class ComputedRefImpl<T> {
   }
 }
 
+//接受一个getter函数，并以getter函数的返回值返回一个不可变的响应式ref对象。
+//或者它也可以使用具有get和set函数的对象来创建一个可写的ref对象。
 export function computed<T>(
   getter: ComputedGetter<T>,
   debugOptions?: DebuggerOptions
