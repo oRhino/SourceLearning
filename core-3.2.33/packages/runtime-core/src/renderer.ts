@@ -317,6 +317,11 @@ function baseCreateRenderer(
   createHydrationFns: typeof createHydrationFunctions
 ): HydrationRenderer
 
+// 创建一个渲染器renderer
+// renderer中有三个方法：render、hydrate、createApp
+// 其中render方法用来进行客户端渲染，hydrate用来进行同构渲染，
+// createApp用来创建app实例。baseCreateRenderer中包含了大量的函数用来处理挂载组件、更新组件等操作。
+
 // implementation
 function baseCreateRenderer(
   options: RendererOptions,
@@ -2352,10 +2357,11 @@ function baseCreateRenderer(
   }
 
   return {
-    render,
-    hydrate,
+    render, //渲染函数
+    hydrate, //同构渲染
     createApp: createAppAPI(render, hydrate)
   }
+  //渲染器中的createApp并不是平时使用到的createApp。当我们调用createApp方法进行创建实例时，会调用渲染器中的createApp生成app实例。
 }
 
 function toggleRecurse(

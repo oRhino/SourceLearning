@@ -39,6 +39,7 @@ let renderer: Renderer<Element | ShadowRoot> | HydrationRenderer
 
 let enabledHydration = false
 
+// 返回一个渲染器renderer,renderer是个全局变量，如果不存在，会使用createRenderer方法进行创建,并将创建好的renderer赋值给这个全局变量。
 function ensureRenderer() {
   //创建渲染器,传入渲染器需要的渲染方法
   return (
