@@ -124,6 +124,7 @@ export type VNodeNormalizedChildren =
   | RawSlots
   | null
 
+//虚拟节点的type描述了标签的类型，props描述了标签的属性，children描述了标签的子节点
 export interface VNode<
   HostNode = RendererNode,
   HostElement = RendererElement,
@@ -228,8 +229,8 @@ export interface VNode<
 // can divide a template into nested blocks, and within each block the node
 // structure would be stable. This allows us to skip most children diffing
 // and only worry about the dynamic nodes (indicated by patch flags).
-export const blockStack: (VNode[] | null)[] = []
-export let currentBlock: VNode[] | null = null
+export const blockStack: (VNode[] | null)[] = [] // 一个block栈用于存储
+export let currentBlock: VNode[] | null = null // 一个数组，用于存储动态节点，最终会赋给dynamicChildren
 
 /**
  * Open a block.
@@ -247,12 +248,16 @@ export let currentBlock: VNode[] | null = null
  *
  * @private
  */
+// 如果disableTracking为true，会将currentBlock设置为null；
+// 否则创建一个新的数组并赋值给currentBlock，并push到blockStack中。
 export function openBlock(disableTracking = false) {
   blockStack.push((currentBlock = disableTracking ? null : []))
 }
 
 export function closeBlock() {
+  // 弹出栈顶block
   blockStack.pop()
+  // 将currentBlock设置为父block
   currentBlock = blockStack[blockStack.length - 1] || null
 }
 
@@ -282,14 +287,22 @@ export function setBlockTracking(value: number) {
   isBlockTreeEnabled += value
 }
 
+// 将currentBlock赋值给vnode.dynamicChildren属性，然后调用closeBlock关闭block（弹出blockStack栈顶元素，
+// 并将currentBlock执行blockStack的最后一个元素，即刚弹出block的父block），接着将vnode收集到父block中。
+
 function setupBlock(vnode: VNode) {
   // save current block children on the block vnode
+  // isBlockTreeEnabled > 0时，将currentBlock赋值给vnode.dynamicChildren
+  // 否则置为null
   vnode.dynamicChildren =
     isBlockTreeEnabled > 0 ? currentBlock || (EMPTY_ARR as any) : null
   // close block
+  // 关闭block
   closeBlock()
   // a block is always going to be patched, so track it as a child of its
   // parent block
+  // 父block收集子block
+  // 如果isBlockTreeEnabled > 0，并且currentBlock不为null，将vnode放入currentBlock中
   if (isBlockTreeEnabled > 0 && currentBlock) {
     currentBlock.push(vnode)
   }
@@ -471,17 +484,22 @@ function createBaseVNode(
   }
 
   // track vnode for block tree
-  // 收集vnode到block树中
+  // 收集当前动态节点到currentBlock中
   if (
     isBlockTreeEnabled > 0 &&
     // avoid a block node from tracking itself
+    // 避免收集自己
     !isBlockNode &&
     // has current parent block
+    // 存在parent block
     currentBlock &&
     // presence of a patch flag indicates this node needs patching on updates.
     // component nodes also should always be patched, because even if the
     // component doesn't need to update, it needs to persist the instance on to
     // the next vnode so that it can be properly unmounted later.
+    // vnode.patchFlag需要大于0或shapeFlag中存在ShapeFlags.COMPONENT
+    // patchFlag的存在表明该节点需要修补更新。
+    // 组件节点也应该总是打补丁，因为即使组件不需要更新，它也需要将实例持久化到下一个 vnode，以便以后可以正确卸载它
     (vnode.patchFlag > 0 || shapeFlag & ShapeFlags.COMPONENT) &&
     // the EVENTS flag is only for hydration and if it is the only flag, the
     // vnode should not be considered dynamic due to handler caching.
@@ -510,6 +528,7 @@ export const createVNode = (
 // patchFlag：补丁标记，由编译器生成vnode时的优化提示，在diff期间会进入对应优化
 // dynamicProps：动态属性
 // isBlockNode：是否是个Block节点
+
 // 1.如果type是个空的动态组件，将vnode.type指定为Comment注释节点。
 // 2.如果type已经是个vnode，则拷贝一个新的vnode返回。
 // 3.处理class component

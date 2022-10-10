@@ -838,6 +838,9 @@ function baseCreateRenderer(
     }
 
     const areChildrenSVG = isSVG && n2.type !== 'foreignObject'
+    // 如果新节点存在dynamicChildren，说明此时新节点是个Block，那么会调用patchBlockChildren方法对dynamicChildren进行patch；
+    // 否则如果optimized为false调用patchChildren，patchChildren中可能会调用patchKeyedChildren/patchUnkeyedChildren进行Diff。
+
     if (dynamicChildren) {
       patchBlockChildren(
         n1.dynamicChildren!,

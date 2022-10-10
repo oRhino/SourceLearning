@@ -171,21 +171,27 @@ export function h<P>(
 ): VNode
 
 // Actual implementation
+//用于创建虚拟DOM
 export function h(type: any, propsOrChildren?: any, children?: any): VNode {
   const l = arguments.length
   if (l === 2) {
+    // propsOrChildren是对象且不是数组
     if (isObject(propsOrChildren) && !isArray(propsOrChildren)) {
       // single vnode without props
+      // propsOrChildren是vnode
       if (isVNode(propsOrChildren)) {
         return createVNode(type, null, [propsOrChildren])
       }
       // props without children
+      // 有props无子节点
       return createVNode(type, propsOrChildren)
     } else {
       // omit props
+      // 有子节点
       return createVNode(type, null, propsOrChildren)
     }
   } else {
+    // 如果参数大于3，那么第三个参数及之后的参数都会被作为子节点处理
     if (l > 3) {
       children = Array.prototype.slice.call(arguments, 2)
     } else if (l === 3 && isVNode(children)) {
