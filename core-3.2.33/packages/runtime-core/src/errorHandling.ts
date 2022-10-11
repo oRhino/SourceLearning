@@ -59,6 +59,14 @@ export const ErrorTypeStrings: Record<number | string, string> = {
 
 export type ErrorTypes = LifecycleHooks | ErrorCodes
 
+/**
+ *  callWithErrorHandling
+ * @param fn  待执行的函数
+ * @param instance  组件实例
+ * @param type 执行过程中出现的错误类型
+ * @param args 执行所需的参数
+ * @returns
+ */
 export function callWithErrorHandling(
   fn: Function,
   instance: ComponentInternalInstance | null,
@@ -74,6 +82,14 @@ export function callWithErrorHandling(
   return res
 }
 
+/**
+ *  callWithAsyncErrorHandling
+ * @param fn  待执行的函数,可以是一个数组
+ * @param instance  组件实例
+ * @param type 执行过程中出现的错误类型
+ * @param args 执行所需的参数
+ * @returns
+ */
 export function callWithAsyncErrorHandling(
   fn: Function | Function[],
   instance: ComponentInternalInstance | null,
