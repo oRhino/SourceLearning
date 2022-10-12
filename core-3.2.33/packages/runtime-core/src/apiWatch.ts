@@ -85,6 +85,9 @@ export type WatchStopHandle = () => void
 
 // watchEffect，会在副作用发生期间追踪依赖。它会在同步执行过程中，自动追踪所有能访问到的响应式property
 
+// 使用watchEffect进行侦听数据源时，侦听器将会在组件渲染之前执行；
+// watchSyncEffect进行侦听数据源时，侦听器在依赖发生变化后立即执行；
+// 而watchPostEffect进行侦听数据源时，侦听器会在组件渲染后才执行
 // Simple effect.
 export function watchEffect(
   effect: WatchEffect,

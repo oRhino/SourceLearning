@@ -19,8 +19,9 @@ type KeyToDepMap = Map<any, Dep>
 const targetMap = new WeakMap<any, KeyToDepMap>()
 
 // The number of effects currently being tracked recursively.
+//  表示递归嵌套执行  effect 函数的深度
 let effectTrackDepth = 0
-
+// 用于标识依赖收集的状态
 export let trackOpBit = 1
 
 /**
@@ -28,6 +29,7 @@ export let trackOpBit = 1
  * This value is chosen to enable modern JS engines to use a SMI on all platforms.
  * When recursion depth is greater, fall back to using a full cleanup.
  */
+//  表示最大标记的位数
 const maxMarkerBits = 30
 
 export type EffectScheduler = (...args: any[]) => any
@@ -115,6 +117,7 @@ export class ReactiveEffect<T = any> {
       // 否则使用cleanupEffect移除deps中的所有dep。
 
       //标记dep为已被track或移除dep的作用就是移除多余的依赖,比如三目运算造成的分支切换
+      // 超过 maxMarkerBits 则 trackOpBit 的计算会超过最大整形的位数，降级为 cleanupEffect
       if (effectTrackDepth <= maxMarkerBits) {
         // 将依赖标记为已收集
         initDepMarkers(this)
@@ -126,9 +129,10 @@ export class ReactiveEffect<T = any> {
       //根据一些状态移除多余的依赖、将effectTrackDepth回退一层，
       // activeEffect指向当前ReactiveEffect的parent、shouldTrack = lastShouldTrack、this.parent置为undefined
       if (effectTrackDepth <= maxMarkerBits) {
+        // 完成依赖标记
         finalizeDepMarkers(this)
       }
-
+      // 恢复到上一级
       trackOpBit = 1 << --effectTrackDepth
 
       activeEffect = this.parent
@@ -195,7 +199,7 @@ export function effect<T = any>(
   fn: () => T,
   options?: ReactiveEffectOptions
 ): ReactiveEffectRunner {
-  // 如果存在fn.effect，那么说明fn已经被effect处理过了，然后使用fn.effect.fn作为fn,原函数
+  // 如果存在fn.effect，那么说明fn已经被effect处理过了，然后使用fn.effect.fn作为fn
   if ((fn as ReactiveEffectRunner).effect) {
     fn = (fn as ReactiveEffectRunner).effect.fn
   }
@@ -277,12 +281,14 @@ export function trackEffects(
     // 但它可能在之前的收集过程中已经被收集了，所以shouldTrack的值取决于dep是否在之前已经被收集过了。
 
     if (!newTracked(dep)) {
+      // 标记为新依赖
       dep.n |= trackOpBit // set newly tracked
+      // 如果依赖已经被收集，则不需要再次收集
       shouldTrack = !wasTracked(dep)
     }
   } else {
     // Full cleanup mode.
-    // 判断dep中是否含有activeEffect
+    // cleanup 模式 判断dep中是否含有activeEffect
     shouldTrack = !dep.has(activeEffect!)
   }
 

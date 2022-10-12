@@ -27,7 +27,7 @@ type RefBase<T> = {
   dep?: Dep
   value: T
 }
-
+//相比于track函数,把依赖保存到ref对象的dep属性中则省去了这一系列的判断和设置，从而优化性能。
 export function trackRefValue(ref: RefBase<any>) {
   if (shouldTrack && activeEffect) {
     ref = toRaw(ref)
@@ -43,7 +43,9 @@ export function trackRefValue(ref: RefBase<any>) {
   }
 }
 
+// 可以接受两个值：ref、newVal。
 export function triggerRefValue(ref: RefBase<any>, newVal?: any) {
+  // 获取ref的原始对象，如果ref的原始对象中有dep属性，则触发dep中的依赖。
   ref = toRaw(ref)
   if (ref.dep) {
     if (__DEV__) {
@@ -98,7 +100,7 @@ class RefImpl<T> {
   private _value: T
   private _rawValue: T
 
-  public dep?: Dep = undefined
+  public dep?: Dep = undefined //3.2优化 直接把ref的相关依赖保存到dep属性中，而在以往版本会把依赖保留到全局的targetMap中
   public readonly __v_isRef = true //标识
 
   constructor(value: T, public readonly __v_isShallow: boolean) {
