@@ -44,6 +44,7 @@ export function trackRefValue(ref: RefBase<any>) {
 }
 
 // 可以接受两个值：ref、newVal。
+// 相比于trugger函数,直接从ref属性中就拿到了它所有的依赖且遍历执行，不需要执行trigger函数一些额外的查找逻辑，因此在性能上也得到了提升。
 export function triggerRefValue(ref: RefBase<any>, newVal?: any) {
   // 获取ref的原始对象，如果ref的原始对象中有dep属性，则触发dep中的依赖。
   ref = toRaw(ref)

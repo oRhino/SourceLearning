@@ -1204,6 +1204,7 @@ function baseCreateRenderer(
     // mounting
     const compatMountInstance =
       __COMPAT__ && initialVNode.isCompatRoot && initialVNode.component
+    //创建组件实例
     const instance: ComponentInternalInstance =
       compatMountInstance ||
       (initialVNode.component = createComponentInstance(
@@ -1231,6 +1232,7 @@ function baseCreateRenderer(
       if (__DEV__) {
         startMeasure(instance, `init`)
       }
+      //初始化组件实例数据
       setupComponent(instance)
       if (__DEV__) {
         endMeasure(instance, `init`)
@@ -1250,7 +1252,7 @@ function baseCreateRenderer(
       }
       return
     }
-
+    //创建一个effect,让render函数执行
     setupRenderEffect(
       instance,
       initialVNode,
@@ -1311,10 +1313,14 @@ function baseCreateRenderer(
     isSVG,
     optimized
   ) => {
+    //创建组件更新函数
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
+        // 如果mounted为false
         let vnodeHook: VNodeHook | null | undefined
+        // 获取el和props
         const { el, props } = initialVNode
+        // 获取beforeMounted mounted钩子和parent
         const { bm, m, parent } = instance
         const isAsyncWrapperVNode = isAsyncWrapper(initialVNode)
 
@@ -1378,6 +1384,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `render`)
           }
+          // 执行renderComponentRoot，转为vnode
           const subTree = (instance.subTree = renderComponentRoot(instance))
           if (__DEV__) {
             endMeasure(instance, `render`)
@@ -1385,6 +1392,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `patch`)
           }
+          //patch (null,subtree)
           patch(
             null,
             subTree,
@@ -1439,6 +1447,7 @@ function baseCreateRenderer(
             )
           }
         }
+        // isMounted置为true，之后进来就是unpate
         instance.isMounted = true
 
         if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
@@ -1448,6 +1457,7 @@ function baseCreateRenderer(
         // #2458: deference mount-only object parameters to prevent memleaks
         initialVNode = container = anchor = null as any
       } else {
+        //更新组件
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: VNode)
@@ -1497,6 +1507,7 @@ function baseCreateRenderer(
         if (__DEV__) {
           startMeasure(instance, `patch`)
         }
+        //patch ( prevTree,nextTree)
         patch(
           prevTree,
           nextTree,
@@ -1550,6 +1561,7 @@ function baseCreateRenderer(
     }
 
     // create reactive effect for rendering
+    // 渲染函数添加effect
     const effect = (instance.effect = new ReactiveEffect(
       componentUpdateFn,
       () => queueJob(instance.update),
@@ -1572,7 +1584,8 @@ function baseCreateRenderer(
       // @ts-ignore (for scheduler)
       update.ownerInstance = instance
     }
-
+    //首次渲染 update(),其实就是执行副作用
+    //componentUpdateFn的!instance.isMounted)分支
     update()
   }
 

@@ -446,6 +446,7 @@ const emptyAppContext = createAppContext()
 
 let uid = 0
 
+//创建组件实例
 export function createComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null,
@@ -453,9 +454,10 @@ export function createComponentInstance(
 ) {
   const type = vnode.type as ConcreteComponent
   // inherit parent app context - or - if root, adopt from root vnode
+  //继承父组件的上下文,如果是根组件vnode.appContext||emptyAppContext
   const appContext =
     (parent ? parent.appContext : vnode.appContext) || emptyAppContext
-
+  //创建组件实例,这是很多属性还没有值
   const instance: ComponentInternalInstance = {
     uid: uid++,
     vnode,
@@ -543,7 +545,7 @@ export function createComponentInstance(
   if (vnode.ce) {
     vnode.ce(instance)
   }
-
+  //返回实例
   return instance
 }
 
@@ -572,23 +574,27 @@ export function validateComponentName(name: string, config: AppConfig) {
     )
   }
 }
-
+// 判断是否是有状态的组件 通过shapeFlag判断
 export function isStatefulComponent(instance: ComponentInternalInstance) {
   return instance.vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT
 }
 
 export let isInSSRComponentSetup = false
 
+// 初始化组件实例
 export function setupComponent(
   instance: ComponentInternalInstance,
   isSSR = false
 ) {
   isInSSRComponentSetup = isSSR
-
+  // 解构出vnode的props和children属性
   const { props, children } = instance.vnode
+  // 通过isStatefulComponent(instance)判断是否是有状态的组件(没有状态的组件是函数式组件)
   const isStateful = isStatefulComponent(instance)
   initProps(instance, props, isStateful, isSSR)
   initSlots(instance, children)
+
+  //根据isStateful变量决定是否执行setupStatefulComponent
 
   const setupResult = isStateful
     ? setupStatefulComponent(instance, isSSR)
@@ -596,7 +602,7 @@ export function setupComponent(
   isInSSRComponentSetup = false
   return setupResult
 }
-
+// 初始化有状态的组件内容
 function setupStatefulComponent(
   instance: ComponentInternalInstance,
   isSSR: boolean
@@ -636,6 +642,7 @@ function setupStatefulComponent(
     exposePropsOnRenderContext(instance)
   }
   // 2. call setup()
+  //调用setup方法
   const { setup } = Component
   if (setup) {
     const setupContext = (instance.setupContext =
@@ -643,6 +650,7 @@ function setupStatefulComponent(
 
     setCurrentInstance(instance)
     pauseTracking()
+    //setup函数返回的结果
     const setupResult = callWithErrorHandling(
       setup,
       instance,
@@ -690,11 +698,14 @@ function setupStatefulComponent(
   }
 }
 
+// 处理setup函数返回的结果
 export function handleSetupResult(
   instance: ComponentInternalInstance,
   setupResult: unknown,
   isSSR: boolean
 ) {
+  //返回一个函数
+  // 如果是函数，那就是用户自己写的render函数了，instance.render = setupResult
   if (isFunction(setupResult)) {
     // setup returned an inline render function
     if (__SSR__ && (instance.type as ComponentOptions).__ssrInlineRender) {
@@ -705,6 +716,7 @@ export function handleSetupResult(
       instance.render = setupResult as InternalRenderFunction
     }
   } else if (isObject(setupResult)) {
+    // 如果是对象，就把这个对象赋值给instance.setupState
     if (__DEV__ && isVNode(setupResult)) {
       warn(
         `setup() should not return VNodes directly - ` +
@@ -716,6 +728,7 @@ export function handleSetupResult(
     if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
       instance.devtoolsRawSetupState = setupResult
     }
+    //自动脱ref
     instance.setupState = proxyRefs(setupResult)
     if (__DEV__) {
       exposeSetupStateOnRenderContext(instance)
@@ -727,6 +740,7 @@ export function handleSetupResult(
       }`
     )
   }
+  // 执行finishComponentSetup方法
   finishComponentSetup(instance, isSSR)
 }
 
@@ -754,6 +768,7 @@ export function registerRuntimeCompiler(_compile: any) {
 // dev only
 export const isRuntimeOnly = () => !compile
 
+// setup函数完成
 export function finishComponentSetup(
   instance: ComponentInternalInstance,
   isSSR: boolean,
@@ -771,6 +786,7 @@ export function finishComponentSetup(
 
   // template / render function normalization
   // could be already set when returned from setup()
+  // 如果没有render函数，通过compile方法编译模板获得render函数赋值给instance.render
   if (!instance.render) {
     // only do on-the-fly compile if not in SSR - SSR on-the-fly compilation
     // is done by server-renderer
@@ -822,6 +838,7 @@ export function finishComponentSetup(
   }
 
   // support for 2.x options
+  // 对vue2.0做一些兼容处理
   if (__FEATURE_OPTIONS_API__ && !(__COMPAT__ && skipOptions)) {
     setCurrentInstance(instance)
     pauseTracking()
@@ -832,6 +849,7 @@ export function finishComponentSetup(
 
   // warn missing template/render
   // the runtime compilation of template in SSR is done by server-render
+  // 此时还没有render函数 -警告
   if (__DEV__ && !Component.render && instance.render === NOOP && !isSSR) {
     /* istanbul ignore if */
     if (!compile && Component.template) {

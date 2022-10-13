@@ -14,26 +14,33 @@
     <script>
         let { reactive, shallowReactive, readonly, shallowReadonly, effect } = VueReactivity
 
-        // let obj = { name: 'zf', age: { n: 12 } };
+        let obj = { name: 'zf', age: { n: 12 } };
 
-        // let state = reactive(obj)
+        let state = reactive(obj)
 
-        // console.log(obj);
+        console.log(obj);
 
-        // effect(() => {
-        //     console.log("change", state.name);
-        // });
+        effect(() => {
+            console.log("change", state.name);
+        });
 
-        // setTimeout(() => {
-        //     state.name = "哈哈哈哈";
-        // }, 1000);
-        // console.log(state);
+        effect(() => {
+            console.log("change", state.age.n);
+        });
 
-        let obj1 = { name: 'xx' }
-        let readRef = readonly(obj1);
+        debugger
+        let s = reactive({ x: 111 })
 
-        console.log(obj1);
-        readRef.name = "112";
+        setTimeout(() => {
+            state.name = "哈哈哈哈";
+        }, 1000);
+        console.log(state);
+
+        // let obj1 = { name: 'xx' }
+        // let readRef = readonly(obj1);
+
+        // console.log(obj1);
+        // readRef.name = "112";
 
 
     </script>
