@@ -372,12 +372,14 @@ function baseCreateRenderer(
     }
 
     // patching & not same type, unmount old tree
+    // 不是同一类型的节点 直接卸载旧子树
     if (n1 && !isSameVNodeType(n1, n2)) {
       anchor = getNextHostNode(n1)
       unmount(n1, parentComponent, parentSuspense, true)
       n1 = null
     }
 
+    //diff算法应该退出优化模式
     if (n2.patchFlag === PatchFlags.BAIL) {
       optimized = false
       n2.dynamicChildren = null
@@ -473,6 +475,7 @@ function baseCreateRenderer(
     }
   }
 
+  ///处理文本
   const processText: ProcessTextOrCommentFn = (n1, n2, container, anchor) => {
     if (n1 == null) {
       hostInsert(
@@ -487,7 +490,7 @@ function baseCreateRenderer(
       }
     }
   }
-
+  ///处理注释
   const processCommentNode: ProcessTextOrCommentFn = (
     n1,
     n2,
@@ -505,7 +508,7 @@ function baseCreateRenderer(
       n2.el = n1.el
     }
   }
-
+  ///挂载静态节点
   const mountStaticNode = (
     n2: VNode,
     container: RendererElement,
@@ -525,7 +528,7 @@ function baseCreateRenderer(
   }
 
   /**
-   * Dev / HMR only
+   * Dev / HMR only patch静态节点,dev和热更新才会调用
    */
   const patchStaticNode = (
     n1: VNode,
@@ -550,7 +553,7 @@ function baseCreateRenderer(
       n2.anchor = n1.anchor
     }
   }
-
+  ///移动静态节点
   const moveStaticNode = (
     { el, anchor }: VNode,
     container: RendererElement,
@@ -564,7 +567,7 @@ function baseCreateRenderer(
     }
     hostInsert(anchor!, container, nextSibling)
   }
-
+  ///删除静态节点
   const removeStaticNode = ({ el, anchor }: VNode) => {
     let next
     while (el && el !== anchor) {
@@ -960,6 +963,7 @@ function baseCreateRenderer(
   }
 
   // The fast path for blocks.
+  //快速patch (通过block树)
   const patchBlockChildren: PatchBlockChildrenFn = (
     oldChildren,
     newChildren,
@@ -1166,7 +1170,9 @@ function baseCreateRenderer(
     optimized: boolean
   ) => {
     n2.slotScopeIds = slotScopeIds
+    // 判断旧节点是否为空
     if (n1 == null) {
+      // 判断是否为keepAlive组
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
         ;(parentComponent!.ctx as KeepAliveContext).activate(
           n2,
@@ -1176,6 +1182,7 @@ function baseCreateRenderer(
           optimized
         )
       } else {
+        //挂载组件
         mountComponent(
           n2,
           container,
@@ -1187,6 +1194,7 @@ function baseCreateRenderer(
         )
       }
     } else {
+      //更新组件
       updateComponent(n1, n2, optimized)
     }
   }
@@ -1202,6 +1210,7 @@ function baseCreateRenderer(
   ) => {
     // 2.x compat may pre-create the component instance before actually
     // mounting
+    // 2.x 在实际创建组件之前，预先创建了组件实例
     const compatMountInstance =
       __COMPAT__ && initialVNode.isCompatRoot && initialVNode.component
     //创建组件实例
@@ -1223,6 +1232,7 @@ function baseCreateRenderer(
     }
 
     // inject renderer internals for keepAlive
+    // 是否keepAlive组件，是否存在__isKeepAlive属性
     if (isKeepAlive(initialVNode)) {
       ;(instance.ctx as KeepAliveContext).renderer = internals
     }

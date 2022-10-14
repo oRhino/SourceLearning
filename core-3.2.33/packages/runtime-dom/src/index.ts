@@ -74,8 +74,9 @@ export const createApp = ((...args) => {
   }
 
   const { mount } = app
-  //重写mount方法
+  // 重写mount方法
   app.mount = (containerOrSelector: Element | ShadowRoot | string): any => {
+    // 判断挂载点是否存在
     const container = normalizeContainer(containerOrSelector)
     if (!container) return
 
@@ -85,6 +86,9 @@ export const createApp = ((...args) => {
       // Reason: potential execution of JS expressions in in-DOM template.
       // The user must make sure the in-DOM template is trusted. If it's
       // rendered by the server, the template should not contain any user data.
+      // 原因：在 DOM 模板中可能执行 JS 表达式。
+      // 用户必须确保 DOM 模板是受信任的。如果是
+      // 由服务器呈现，模板不应包含任何用户数据。
       component.template = container.innerHTML
       // 2.x compat check
       if (__COMPAT__ && __DEV__) {
@@ -102,9 +106,12 @@ export const createApp = ((...args) => {
     }
 
     // clear content before mounting
+    // 清除之前的内容
     container.innerHTML = ''
+    // 执行被重写的mount,挂载元素
     const proxy = mount(container, false, container instanceof SVGElement)
     if (container instanceof Element) {
+      // vue2的话，会给#app设置一个v-cloak属性，在render的时候清空掉
       container.removeAttribute('v-cloak')
       container.setAttribute('data-v-app', '')
     }
@@ -179,7 +186,7 @@ function injectCompilerOptionsCheck(app: App) {
     })
   }
 }
-
+// 挂载点的判断
 function normalizeContainer(
   container: Element | ShadowRoot | string
 ): Element | null {
@@ -192,6 +199,7 @@ function normalizeContainer(
     }
     return res
   }
+  // 如果是ShadowRoot并且mode为mode可能会导致未知的bug
   if (
     __DEV__ &&
     window.ShadowRoot &&
