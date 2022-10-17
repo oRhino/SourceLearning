@@ -457,7 +457,7 @@ export function createComponentInstance(
   //继承父组件的上下文,如果是根组件vnode.appContext||emptyAppContext
   const appContext =
     (parent ? parent.appContext : vnode.appContext) || emptyAppContext
-  //创建组件实例,这是很多属性还没有值
+  //创建组件实例,这时很多属性还没有值
   const instance: ComponentInternalInstance = {
     uid: uid++,
     vnode,
@@ -591,18 +591,19 @@ export function setupComponent(
   const { props, children } = instance.vnode
   // 通过isStatefulComponent(instance)判断是否是有状态的组件(没有状态的组件是函数式组件)
   const isStateful = isStatefulComponent(instance)
+  //根据props解析出props和attrs,将其放在instance上
   initProps(instance, props, isStateful, isSSR)
+  //插槽的解析
   initSlots(instance, children)
 
   //根据isStateful变量决定是否执行setupStatefulComponent
-
   const setupResult = isStateful
     ? setupStatefulComponent(instance, isSSR)
     : undefined
   isInSSRComponentSetup = false
   return setupResult
 }
-// 初始化有状态的组件内容
+// 初始化有状态的组件内容(调用setup方法)
 function setupStatefulComponent(
   instance: ComponentInternalInstance,
   isSSR: boolean
@@ -634,7 +635,9 @@ function setupStatefulComponent(
     }
   }
   // 0. create render proxy property access cache
+  // 0.创建渲染代理的属性访问缓存
   instance.accessCache = Object.create(null)
+  // 1.创建渲染上下文代理
   // 1. create public instance / render proxy
   // also mark it raw so it's never observed
   instance.proxy = markRaw(new Proxy(instance.ctx, PublicInstanceProxyHandlers))
@@ -645,6 +648,7 @@ function setupStatefulComponent(
   //调用setup方法
   const { setup } = Component
   if (setup) {
+    //构建setup函数需要的参数
     const setupContext = (instance.setupContext =
       setup.length > 1 ? createSetupContext(instance) : null)
 
@@ -691,9 +695,11 @@ function setupStatefulComponent(
         )
       }
     } else {
+      // 处理setup执行结果
       handleSetupResult(instance, setupResult, isSSR)
     }
   } else {
+    // 完成组件实例设置
     finishComponentSetup(instance, isSSR)
   }
 }
@@ -704,10 +710,12 @@ export function handleSetupResult(
   setupResult: unknown,
   isSSR: boolean
 ) {
-  //返回一个函数
+  // 返回一个函数
   // 如果是函数，那就是用户自己写的render函数了，instance.render = setupResult
+  // 当模板使用h函数渲染时，setup返回一个函数作为组件的渲染函数
   if (isFunction(setupResult)) {
     // setup returned an inline render function
+    // setup返回一个内部的渲染函数
     if (__SSR__ && (instance.type as ComponentOptions).__ssrInlineRender) {
       // when the function's name is `ssrRender` (compiled by SFC inline mode),
       // set it as ssrRender instead.
@@ -716,7 +724,7 @@ export function handleSetupResult(
       instance.render = setupResult as InternalRenderFunction
     }
   } else if (isObject(setupResult)) {
-    // 如果是对象，就把这个对象赋值给instance.setupState
+    // 如果是对象
     if (__DEV__ && isVNode(setupResult)) {
       warn(
         `setup() should not return VNodes directly - ` +
@@ -728,7 +736,7 @@ export function handleSetupResult(
     if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
       instance.devtoolsRawSetupState = setupResult
     }
-    //自动脱ref
+    // setupState保存了setup返回的结果, proxyRefs自动脱ref(自动浅层解包)
     instance.setupState = proxyRefs(setupResult)
     if (__DEV__) {
       exposeSetupStateOnRenderContext(instance)
@@ -785,6 +793,8 @@ export function finishComponentSetup(
   }
 
   // template / render function normalization
+  // 对模板或者渲染函数标准化
+
   // could be already set when returned from setup()
   // 如果没有render函数，通过compile方法编译模板获得render函数赋值给instance.render
   if (!instance.render) {
@@ -898,9 +908,11 @@ function createAttrsProxy(instance: ComponentInternalInstance): Data {
   )
 }
 
+//创建setup的上下文,(setup的参数)(context提取instance的一部分内容 context!=instance,开发中使用的内容)
 export function createSetupContext(
   instance: ComponentInternalInstance
 ): SetupContext {
+  //expose
   const expose: SetupContext['expose'] = exposed => {
     if (__DEV__ && instance.exposed) {
       warn(`expose() should be called only once per setup().`)
@@ -925,6 +937,7 @@ export function createSetupContext(
       expose
     })
   } else {
+    //attrs slots emit expose
     return {
       get attrs() {
         return attrs || (attrs = createAttrsProxy(instance))

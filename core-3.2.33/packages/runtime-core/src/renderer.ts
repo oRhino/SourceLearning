@@ -1240,6 +1240,7 @@ function baseCreateRenderer(
     // resolve props and slots for setup context
     if (!(__COMPAT__ && compatMountInstance)) {
       if (__DEV__) {
+        // 性能统计
         startMeasure(instance, `init`)
       }
       //初始化组件实例数据

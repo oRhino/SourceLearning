@@ -540,7 +540,7 @@ function createDuplicateChecker() {
 }
 
 export let shouldCacheAccess = true
-
+//vue2的兼容 合并options api
 export function applyOptions(instance: ComponentInternalInstance) {
   const options = resolveMergedOptions(instance)
   const publicThis = instance.proxy! as any

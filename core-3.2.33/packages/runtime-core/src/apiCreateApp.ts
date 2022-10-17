@@ -374,7 +374,7 @@ export function createAppAPI<HostElement>(
         }
       },
 
-      // 全局注入一些数据。这些数据会被存入上下文对象的provides中。
+      // 全局注入一些数据。这些数据会被存入上下文对象的provides中
       provide(key, value) {
         if (__DEV__ && (key as string | symbol) in context.provides) {
           warn(
