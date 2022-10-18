@@ -836,7 +836,7 @@ export function finishComponentSetup(
         }
       }
     }
-
+    //  setup返回的render优先级高于Component.render(options api)
     instance.render = (Component.render || NOOP) as InternalRenderFunction
 
     // for runtime-compiled render functions using `with` blocks, the render

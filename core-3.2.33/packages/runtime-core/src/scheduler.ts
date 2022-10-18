@@ -269,7 +269,7 @@ const getId = (job: SchedulerJob): number =>
   job.id == null ? Infinity : job.id
 
 // 在flushJobs中会依次执行pendingPreFlushCbs、queue、pendingPostFlushCbs中的任务，
-// 如果此时还有剩余job，则继续执行flushJobs，知道将三个队列中的任务都执行完。
+// 如果此时还有剩余job，则继续执行flushJobs，直到将三个队列中的任务都执行完。
 function flushJobs(seen?: CountMap) {
   // 将isFlushPending置为false，isFlushing置为true
   // 因为此时已经要开始执行队列了

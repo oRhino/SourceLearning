@@ -171,23 +171,24 @@ export function h<P>(
 ): VNode
 
 // Actual implementation
-//用于创建虚拟DOM
+// 用于创建虚拟DOM
 export function h(type: any, propsOrChildren?: any, children?: any): VNode {
   const l = arguments.length
+  //两个参数(类型 + props,类型 + children)
   if (l === 2) {
-    // propsOrChildren是对象且不是数组
+    // 如果propsOrChildren是对象且不是数组
     if (isObject(propsOrChildren) && !isArray(propsOrChildren)) {
       // single vnode without props
-      // propsOrChildren是vnode
+      // 如果propsOrChildren是vnode  比如:h('div',h('span','helloworld')),那么propsOrChildren作为children
       if (isVNode(propsOrChildren)) {
         return createVNode(type, null, [propsOrChildren])
       }
       // props without children
-      // 有props无子节点
+      // propsOrChildren作为props
       return createVNode(type, propsOrChildren)
     } else {
+      //如果 propsOrChildren不是对象,或者是一个数组,那么propsOrChildren作为children
       // omit props
-      // 有子节点
       return createVNode(type, null, propsOrChildren)
     }
   } else {

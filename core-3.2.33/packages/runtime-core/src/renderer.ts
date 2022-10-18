@@ -775,7 +775,7 @@ function baseCreateRenderer(
       }
     }
   }
-
+  //挂载自己的孩子
   const mountChildren: MountChildrenFn = (
     children,
     container,
@@ -787,6 +787,7 @@ function baseCreateRenderer(
     optimized,
     start = 0
   ) => {
+    //遍历处理元素
     for (let i = start; i < children.length; i++) {
       const child = (children[i] = optimized
         ? cloneIfMounted(children[i] as VNode)
@@ -1213,7 +1214,7 @@ function baseCreateRenderer(
     // 2.x 在实际创建组件之前，预先创建了组件实例
     const compatMountInstance =
       __COMPAT__ && initialVNode.isCompatRoot && initialVNode.component
-    //创建组件实例
+    //1.创建组件实例
     const instance: ComponentInternalInstance =
       compatMountInstance ||
       (initialVNode.component = createComponentInstance(
@@ -1243,7 +1244,7 @@ function baseCreateRenderer(
         // 性能统计
         startMeasure(instance, `init`)
       }
-      //初始化组件实例数据
+      //2.初始化组件实例数据
       setupComponent(instance)
       if (__DEV__) {
         endMeasure(instance, `init`)
@@ -1263,7 +1264,7 @@ function baseCreateRenderer(
       }
       return
     }
-    //创建一个effect,让render函数执行
+    //3.创建一个effect,让render函数执行
     setupRenderEffect(
       instance,
       initialVNode,
@@ -1315,6 +1316,7 @@ function baseCreateRenderer(
     }
   }
 
+  //为render函数添加effect,每个组件都有一个effect,组件级更新
   const setupRenderEffect: SetupRenderEffectFn = (
     instance,
     initialVNode,
@@ -1327,6 +1329,7 @@ function baseCreateRenderer(
     //创建组件更新函数
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
+        // 初次渲染
         // 如果mounted为false
         let vnodeHook: VNodeHook | null | undefined
         // 获取el和props
@@ -1361,6 +1364,7 @@ function baseCreateRenderer(
             if (__DEV__) {
               startMeasure(instance, `render`)
             }
+            //调用render函数
             instance.subTree = renderComponentRoot(instance)
             if (__DEV__) {
               endMeasure(instance, `render`)
@@ -1395,7 +1399,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `render`)
           }
-          // 执行renderComponentRoot，转为vnode
+          // 执行renderComponentRoot，转为vnode(调用render函数)
           const subTree = (instance.subTree = renderComponentRoot(instance))
           if (__DEV__) {
             endMeasure(instance, `render`)
@@ -1468,7 +1472,7 @@ function baseCreateRenderer(
         // #2458: deference mount-only object parameters to prevent memleaks
         initialVNode = container = anchor = null as any
       } else {
-        //更新组件
+        // 更新组件
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: VNode)
