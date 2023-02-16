@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    
+    <script src="../../dist/vue.global.js"></script>
+</head>
+<body>
+    <div id="app">12939903903</div>
+    <script>
+        /***
+         * 1. 下载vue源码   
+         * 2. 开启sourceMap 即命令添加-s -sourcemap参数
+         * 3. 在package/vue/examples中,创建文件,导入../../dist/vue.global.js,书写测试用例
+         * 4. 通过liveServer启动服务
+         * 5. 在浏览器控制台中的source中查看运行代码,并进行debugger
+         */
+        const {reactive,effect} = Vue;
+        
+        const obj = reactive({
+            name:'张三'
+        })
+
+        effect(()=>{
+            document.querySelector("#app").innerText = obj.name;
+        })
+
+        setTimeout(() => {
+            obj.name = "李四"
+        }, 2000);
+
+    </script>
+    
+</body>
+</html>

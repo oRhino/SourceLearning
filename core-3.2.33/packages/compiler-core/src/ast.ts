@@ -552,6 +552,7 @@ export function createRoot(
   children: TemplateChildNode[],
   loc = locStub
 ): RootNode {
+  //创建根节点的目的就是添加一个虚拟节点
   return {
     type: NodeTypes.ROOT,
     children,

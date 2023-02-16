@@ -82,6 +82,7 @@ export function baseCompile(
     onError(createCompilerError(ErrorCodes.X_SCOPE_ID_NOT_SUPPORTED))
   }
 
+  //1. parse template -> AST
   const ast = isString(template) ? baseParse(template, options) : template
   const [nodeTransforms, directiveTransforms] =
     getBaseTransformPreset(prefixIdentifiers)
@@ -93,6 +94,7 @@ export function baseCompile(
     }
   }
 
+  //2. transform AST -> Javascript AST
   transform(
     ast,
     extend({}, options, {
@@ -109,6 +111,7 @@ export function baseCompile(
     })
   )
 
+  //3. generate Javascript AST -> render Fn
   return generate(
     ast,
     extend({}, options, {
