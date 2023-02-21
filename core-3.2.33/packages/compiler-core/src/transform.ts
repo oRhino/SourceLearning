@@ -121,7 +121,7 @@ export interface TransformContext
   // 2.x Compat only
   filters?: Set<string>
 }
-
+//创建transform上下文
 export function createTransformContext(
   root: RootNode,
   {
@@ -175,10 +175,10 @@ export function createTransformContext(
 
     // state
     root,
-    helpers: new Map(),
+    helpers: new Map(), //存储的是创建 VNode 的函数名称（其实是 Symbol）
     components: new Set(),
     directives: new Set(),
-    hoists: [],
+    hoists: [], //存储的是静态节点
     imports: [],
     constantCache: new Map(),
     temps: 0,
@@ -315,8 +315,11 @@ export function createTransformContext(
 }
 
 export function transform(root: RootNode, options: TransformOptions) {
+  // 创建transform上下文
   const context = createTransformContext(root, options)
+  // 遍历 ast节点,执行转换函数
   traverseNode(root, context)
+  // 如果编译选项中打开了 hoistStatic 开关，则进行静态提升
   if (options.hoistStatic) {
     hoistStatic(root, context)
   }
@@ -341,6 +344,7 @@ function createRootCodegen(root: RootNode, context: TransformContext) {
   const { helper } = context
   const { children } = root
   if (children.length === 1) {
+    //根节点只有一个子节点
     const child = children[0]
     // if the single child is an element, turn it into a block.
     if (isSingleElementRoot(root, child) && child.codegenNode) {
@@ -358,6 +362,7 @@ function createRootCodegen(root: RootNode, context: TransformContext) {
       root.codegenNode = child
     }
   } else if (children.length > 1) {
+    //根节点有多个子节点,返回fragment
     // root has multiple nodes - return a fragment block.
     let patchFlag = PatchFlags.STABLE_FRAGMENT
     let patchFlagText = PatchFlagNames[PatchFlags.STABLE_FRAGMENT]
@@ -410,7 +415,11 @@ export function traverseNode(
   context: TransformContext
 ) {
   context.currentNode = node
-  // apply transform plugins
+  // 进行深度遍历，但是父节点的处理是依赖于子节点的，所以虽然是自顶向下进行遍历，
+  // 但是实际处理过程却是只下而上进行处理。这也就是为什么要将父节点的处理函数存放在数组中，
+  // 在子节点处理完成后再遍历执行这些函数。
+
+  // apply transform plugins 插件
   const { nodeTransforms } = context
   const exitFns = []
   for (let i = 0; i < nodeTransforms.length; i++) {
@@ -456,11 +465,13 @@ export function traverseNode(
     case NodeTypes.FOR:
     case NodeTypes.ELEMENT:
     case NodeTypes.ROOT:
+      // 遍历子节点
       traverseChildren(node, context)
       break
   }
 
   // exit transforms
+  // 执行转换函数返回的退出函数
   context.currentNode = node
   let i = exitFns.length
   while (i--) {

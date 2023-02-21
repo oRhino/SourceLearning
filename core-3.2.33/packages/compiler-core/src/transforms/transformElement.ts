@@ -222,6 +222,7 @@ export const transformElement: NodeTransform = (node, context) => {
       }
     }
 
+    //AST进行转化，实际上就是给AST的codegenNode属性赋值，该属性的值用来描述js代码
     node.codegenNode = createVNodeCall(
       context,
       vnodeTag,

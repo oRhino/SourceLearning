@@ -90,6 +90,15 @@ export const enum TextModes {
   ATTRIBUTE_VALUE
 }
 
+// options：解析相关的配置
+// column：当前代码的列号
+// line：当前代码的行号
+// offset：当前代码相对原始代码的偏移量
+// originalSource：表示最初的原始代码
+// source：当前代码
+// inPre：代码是否在 pre 标签内
+// inVPre：代码是否在 v-pre 指令下
+// onWarn：warn 函数
 export interface ParserContext {
   options: MergedParserOptions
   readonly originalSource: string
@@ -132,15 +141,6 @@ function createParserContext(
         ? defaultParserOptions[key]
         : rawOptions[key]
   }
-  // options：解析相关的配置
-  // column：当前代码的列号
-  // line：当前代码的行号
-  // offset：当前代码相对原始代码的偏移量
-  // originalSource：表示最初的原始代码
-  // source：当前代码
-  // inPre：代码是否在 pre 标签内
-  // inVPre：代码是否在 v-pre 指令下
-  // onWarn：warn 函数
   return {
     options,
     column: 1,
@@ -273,16 +273,26 @@ function parseChildren(
   let removedWhitespace = false
   if (mode !== TextModes.RAWTEXT && mode !== TextModes.RCDATA) {
     const shouldCondense = context.options.whitespace !== 'preserve'
+    //condense默认配置
+    //元素之间的包括折行在内的多个空格会被移除，文本结点之间可被压缩的空格都会被压缩成为一个空格。
+    //preserve
+    //元素之间的包括折行在内的多个空格不会被移除，文本结点之间可被压缩的空格也都不会被压缩成为一个空格。
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i]
       if (!context.inPre && node.type === NodeTypes.TEXT) {
+        // 如果是文本节点并且没有在 pre 标签内
+
         if (!/[^\t\r\n\f ]/.test(node.content)) {
+          //匹配空白字符(!/[^\t\r\n\f ]/)
           const prev = nodes[i - 1]
           const next = nodes[i + 1]
           // Remove if:
           // - the whitespace is the first or last node, or:
           // - (condense mode) the whitespace is adjacent to a comment, or:
           // - (condense mode) the whitespace is between two elements AND contains newline
+          // 判断空白字符是开始或者结果的节点 或者
+          // 空白字符与注释相连 或者
+          // 空白字符在两个元素之间并包含换行符
           if (
             !prev ||
             !next ||
@@ -293,10 +303,12 @@ function parseChildren(
                   next.type === NodeTypes.ELEMENT &&
                   /[\r\n]/.test(node.content))))
           ) {
+            //标记removedWhitespace为真。并且将当前节点设置为 null
             removedWhitespace = true
             nodes[i] = null as any
           } else {
             // Otherwise, the whitespace is condensed into a single space
+            // 压缩成一个空格
             node.content = ' '
           }
         } else if (shouldCondense) {
@@ -307,6 +319,7 @@ function parseChildren(
       }
       // Remove comment nodes if desired by configuration.
       else if (node.type === NodeTypes.COMMENT && !context.options.comments) {
+        //如果是注释节点，并且没有将comments配置设置为 true，就会将注释节点移除，设置当前节点为 null。
         removedWhitespace = true
         nodes[i] = null as any
       }
@@ -320,7 +333,7 @@ function parseChildren(
       }
     }
   }
-
+  // 过滤掉这些被标记清除的节点并返回过滤后的 AST 节点数组
   return removedWhitespace ? nodes.filter(Boolean) : nodes
 }
 
@@ -346,7 +359,7 @@ function pushNode(nodes: TemplateChildNode[], node: TemplateChildNode): void {
 
   nodes.push(node)
 }
-
+// <![CDATA[ 节点解析
 function parseCDATA(
   context: ParserContext,
   ancestors: ElementNode[]
@@ -411,7 +424,7 @@ function parseComment(context: ParserContext): CommentNode {
     loc: getSelection(context, start)
   }
 }
-
+//<!DOCTYPE 节点解析
 function parseBogusComment(context: ParserContext): CommentNode | undefined {
   __TEST__ && assert(/^<(?:[\!\?]|\/[^a-z>])/i.test(context.source))
 
@@ -1012,7 +1025,7 @@ function parseInterpolation(
   const [open, close] = context.options.delimiters
   __TEST__ && assert(startsWith(context.source, open))
 
-  //找到插值的结束分隔符的位置，如果没有找到，就报错。
+  //找到插值的结束分隔符的位置，如果没有找到，就报错。(比如 {{msg}} ,这里是从m开始查找)
   const closeIndex = context.source.indexOf(close, open.length)
   if (closeIndex === -1) {
     emitError(context, ErrorCodes.X_MISSING_INTERPOLATION_END)

@@ -313,7 +313,7 @@ export function generate(
     map: context.map ? (context.map as any).toJSON() : undefined
   }
 }
-
+// 生成函数的前置声明
 function genFunctionPreamble(ast: RootNode, context: CodegenContext) {
   const {
     ssr,
@@ -469,7 +469,7 @@ function genAssets(
     }
   }
 }
-
+// 生成静态提升的代码
 function genHoists(hoists: (JSChildNode | null)[], context: CodegenContext) {
   if (!hoists.length) {
     return

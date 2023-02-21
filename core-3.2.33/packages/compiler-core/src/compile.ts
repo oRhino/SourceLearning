@@ -24,6 +24,7 @@ export type TransformPreset = [
   Record<string, DirectiveTransform>
 ]
 
+//里面会存放很多转换函数，这些转换函数是有序的，不可以随意调换位置
 export function getBaseTransformPreset(
   prefixIdentifiers?: boolean
 ): TransformPreset {
@@ -82,8 +83,9 @@ export function baseCompile(
     onError(createCompilerError(ErrorCodes.X_SCOPE_ID_NOT_SUPPORTED))
   }
 
-  //1. parse template -> AST
+  //1. parse template -> AST(对模板的完整描述,不能直接拿来生成代码，缺乏语义化，并且没有包含编译优化的相关属性)
   const ast = isString(template) ? baseParse(template, options) : template
+  //transform数组
   const [nodeTransforms, directiveTransforms] =
     getBaseTransformPreset(prefixIdentifiers)
 

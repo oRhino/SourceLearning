@@ -50,14 +50,15 @@ export const enum PatchFlags {
    * class/style). when this flag is present, the vnode also has a dynamicProps
    * array that contains the keys of the props that may change so the runtime
    * can diff them faster (without having to worry about removed props)
-   */ // 表示具有动态的非class和style的props
+   */ // 动态属性，但不包含类名和样式
+  // 如果是组件，则可以包含类名和样式
   PROPS = 1 << 3,
 
   /**
    * Indicates an element with props with dynamic keys. When keys change, a full
    * diff is always needed to remove the old key. This flag is mutually
    * exclusive with CLASS, STYLE and PROPS.
-   */ // 表示props具有动态的key，与CLASS、STYLE、PROPS冲突
+   */ // 具有动态 key 属性，当 key 改变时，需要进行完整的 diff 比较。
   FULL_PROPS = 1 << 4,
 
   /**
@@ -73,7 +74,7 @@ export const enum PatchFlags {
 
   /**
    * Indicates a fragment with keyed or partially keyed children
-   */ // 表示children带有key的fragment
+   */ // 带有 key 属性的 fragment 或部分子字节有 key
   KEYED_FRAGMENT = 1 << 7,
 
   /**

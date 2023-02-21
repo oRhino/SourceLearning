@@ -23,14 +23,14 @@ export const enum Namespaces {
 }
 
 export const enum NodeTypes {
-  ROOT,
-  ELEMENT,
-  TEXT,
-  COMMENT,
-  SIMPLE_EXPRESSION,
-  INTERPOLATION,
-  ATTRIBUTE,
-  DIRECTIVE,
+  ROOT, // 根节点 0
+  ELEMENT, // 元素节点 1
+  TEXT, // 文本节点 2
+  COMMENT, // 注释节点 3
+  SIMPLE_EXPRESSION, // 表达式 4
+  INTERPOLATION, // 插值 {{ }} 5
+  ATTRIBUTE, // 属性 6
+  DIRECTIVE, // 指令 7
   // containers
   COMPOUND_EXPRESSION,
   IF,
@@ -57,10 +57,10 @@ export const enum NodeTypes {
 }
 
 export const enum ElementTypes {
-  ELEMENT,
-  COMPONENT,
-  SLOT,
-  TEMPLATE
+  ELEMENT, // 0 元素节点
+  COMPONENT, // 1 组件
+  SLOT, // 2 插槽
+  TEMPLATE // 3 模板
 }
 
 export interface Node {
@@ -121,13 +121,13 @@ export type ElementNode =
   | TemplateNode
 
 export interface BaseElementNode extends Node {
-  type: NodeTypes.ELEMENT
-  ns: Namespace
-  tag: string
-  tagType: ElementTypes
-  isSelfClosing: boolean
-  props: Array<AttributeNode | DirectiveNode>
-  children: TemplateChildNode[]
+  type: NodeTypes.ELEMENT // 类型
+  ns: Namespace // 命名空间 默认为 HTML，即 0
+  tag: string // 标签名
+  tagType: ElementTypes // 元素类型
+  isSelfClosing: boolean // 是否是自闭合标签 例如 <br/> <hr/>
+  props: Array<AttributeNode | DirectiveNode> // props 属性，包含 HTML 属性和指令
+  children: TemplateChildNode[] // 子节点
 }
 
 export interface PlainElementNode extends BaseElementNode {
@@ -552,7 +552,7 @@ export function createRoot(
   children: TemplateChildNode[],
   loc = locStub
 ): RootNode {
-  //创建根节点的目的就是添加一个虚拟节点
+  //
   return {
     type: NodeTypes.ROOT,
     children,

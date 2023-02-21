@@ -11,7 +11,7 @@ import { isText } from '../utils'
 import { CREATE_TEXT } from '../runtimeHelpers'
 import { PatchFlags, PatchFlagNames } from '@vue/shared'
 import { getConstantType } from './hoistStatic'
-
+//将相邻的文本和表达式合并成一个表达式
 // Merge adjacent text nodes and expressions into a single expression
 // e.g. <div>abc {{ d }} {{ e }}</div> should have a single expression node as child.
 export const transformText: NodeTransform = (node, context) => {
@@ -28,14 +28,17 @@ export const transformText: NodeTransform = (node, context) => {
       let currentContainer: CompoundExpressionNode | undefined = undefined
       let hasText = false
 
+      //循环子节点
       for (let i = 0; i < children.length; i++) {
         const child = children[i]
         if (isText(child)) {
           hasText = true
+          //前一个是文本,判断下一个是不是
           for (let j = i + 1; j < children.length; j++) {
             const next = children[j]
             if (isText(next)) {
               if (!currentContainer) {
+                //复合表达式的节点
                 currentContainer = children[i] = {
                   type: NodeTypes.COMPOUND_EXPRESSION,
                   loc: child.loc,
@@ -47,6 +50,7 @@ export const transformText: NodeTransform = (node, context) => {
               children.splice(j, 1)
               j--
             } else {
+              //不需要合并
               currentContainer = undefined
               break
             }
